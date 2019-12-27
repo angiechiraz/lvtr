@@ -5,22 +5,36 @@ var numbers = require("numbers");
 
 function App() {
   function generateData() {
-    //  generate number of calls for each floor, uniform dist
-    //  **ASSUMING average of 1 call per minute, doesn't really matter, for a half hour
+    //  generate number of calls for each floor in a half hour, uniform dist
+    //  **ASSUMING average of 1 call per minute, doesn't really matter (*triple check?), for a half hour
     var nCalls = numbers.random.sample(0, 30, 99);
 
-    //  generate number of passengers per call, lognormal dist min 0 max 5
-    //  **CHECK I'm just using mean and sd of 1, what do we want
+    //  generate number of passengers per call for each floor
     var nPassengersPerCall = new Array(99);
     for (var i = 2; i < 101; i++) {
-      nPassengersPerCall[i] = numbers.random.distribution.logNormal(
-        Math.round(nCalls[i]),
-        1,
-        1
-      );
-      nPassengersPerCall[i] = nPassengersPerCall[i].map(function(each_element) {
-        return Number(Math.min(Math.round(each_element), 5));
-      });
+      //  **CHECK I'm just using mean of .7 and sd of .5, what do we want
+      if (nCalls[i] > 0) {
+        nPassengersPerCall[i] = numbers.random.distribution.logNormal(
+          Math.round(nCalls[i]),
+          0.7,
+          0.5
+        );
+        nPassengersPerCall[i] = nPassengersPerCall[i].map(function(
+          each_element
+        ) {
+          return Number(Math.min(Math.round(each_element), 5));
+        });
+        var destinations = numbers.random.sample(1, 100, Math.round(nCalls[i]));
+        var passengersAndDestinations = nPassengersPerCall[i].map(function(
+          e,
+          f
+        ) {
+          return { numPassengers: e, destination: Math.round(destinations[f]) };
+        });
+        nPassengersPerCall[i] = passengersAndDestinations;
+      } else {
+        nPassengersPerCall[i] = [];
+      }
     }
     console.log(nPassengersPerCall);
   }
