@@ -7,14 +7,17 @@
   pointer-events: none;
 }
 
+.loading {
+  margin-top: 28vmin;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+    animation: App-logo-spin infinite alternate 1.5s ease-out;
   }
 }
 
 .App-header {
-  background-color: #282c34;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -24,15 +27,11 @@
   color: white;
 }
 
-.App-link {
-  color: #61dafb;
-}
-
 @keyframes App-logo-spin {
   from {
-    transform: rotate(0deg);
+    transform: translateY(60%);
   }
   to {
-    transform: rotate(360deg);
+    transform: translateY(-10%);
   }
 }
