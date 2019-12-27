@@ -11,6 +11,7 @@ function App() {
 
     //  generate number of passengers per call for each floor
     var nPassengersPerCall = new Array(99);
+    var timeSeries = []; // [0: {{floor: , desitnation, numPassengers: }, {}}, 1: {{floor: , desitnation, numPassengers: }, {}},...]
     for (var i = 2; i < 101; i++) {
       //  **CHECK I'm just using mean of .7 and sd of .5, what do we want
       if (nCalls[i] > 0) {
@@ -24,19 +25,28 @@ function App() {
         ) {
           return Number(Math.min(Math.round(each_element), 5));
         });
-        var destinations = numbers.random.sample(1, 100, Math.round(nCalls[i]));
+        var destinations = numbers.random.sample(2, 100, Math.round(nCalls[i]));
         var passengersAndDestinations = nPassengersPerCall[i].map(function(
           e,
           f
         ) {
-          return { numPassengers: e, destination: Math.round(destinations[f]) };
+          return {
+            time: Math.round(Math.random() * 30), // random time in the half hour b/c unif. dist.
+            floor: i,
+            numPassengers: e,
+            destination: Math.round(destinations[f])
+          };
         });
         nPassengersPerCall[i] = passengersAndDestinations;
+        for (var min = 0; min < nPassengersPerCall[i].length; min++) {
+          timeSeries.push(passengersAndDestinations[min]);
+        }
       } else {
         nPassengersPerCall[i] = [];
       }
     }
-    console.log(nPassengersPerCall);
+    //console.log(nPassengersPerCall);
+    console.log(timeSeries);
   }
 
   generateData();
