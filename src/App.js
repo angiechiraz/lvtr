@@ -2,12 +2,16 @@ import React from "react";
 import elevator from "./assets/elevator.png";
 import "./App.css";
 var numbers = require("numbers");
+const unirand = require("unirand");
 
 function App() {
   function generateData() {
-    //  generate number of calls for each floor in a half hour, uniform dist
-    //  **ASSUMING average of 1 call per minute, doesn't really matter (*triple check?), for a half hour
-    var nCalls = numbers.random.sample(0, 30, 99);
+    //  generate number of calls for each floor for 1 min hour, uniform dist
+    //  **ASSUMING average of 10 calls per minute, doesn't really matter (*triple check?), for a half hour
+    // TRY https://www.npmjs.com/package/unirand
+    unirand.seed("lvtr");
+    var nCalls = unirand.uniform(0, 10).distribution(99);
+    console.log(nCalls);
 
     //  generate number of passengers per call for each floor
     var nPassengersPerCall = new Array(99);
