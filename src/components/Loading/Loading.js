@@ -3,12 +3,13 @@ import elevator from "../../assets/elevator.png";
 import "../../App.css";
 var numbers = require("numbers");
 const unirand = require("unirand");
-var timeSeries = []; // [0: {{floor: , desitnation, numPassengers: }, {}}, 1: {{floor: , desitnation, numPassengers: }, {}},...]
 
 function generateData() {
-  //  generate number of calls for each floor for 1 min hour, uniform dist
+  //  generate number of calls for each floor for 1 min, uniform dist
   //  **ASSUMING average of 10 calls per minute, doesn't really matter (*triple check?), for a half hour
   unirand.seed("lvtr");
+  var timeSeries = []; // [0: {{floor: , desitnation, numPassengers: }, {}}, 1: {{floor: , desitnation, numPassengers: }, {}},...]
+  //var totalCalls = unirand.uniform(0,72000);
   unirand
     .uniform(0, 10)
     .distribution(99)
@@ -28,6 +29,7 @@ function generateData() {
           ) {
             return Number(Math.min(Math.round(each_element), 5));
           });
+
           var destinations = numbers.random.sample(
             2,
             100,
@@ -52,6 +54,8 @@ function generateData() {
           nPassengersPerCall[i] = [];
         }
       }
+
+      console.log(timeSeries);
     });
 }
 
@@ -61,7 +65,7 @@ function Loading() {
     <div>
       <img src={elevator} className="elevator-moving" alt="logo" />
       <p className="loading">
-        <code>Generating data...</code>
+        <code>Simulating first approach...</code>
       </p>
     </div>
   );

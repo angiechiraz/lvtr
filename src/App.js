@@ -2,6 +2,7 @@ import React from "react";
 import "./App.css";
 import Loading from "./components/Loading/Loading";
 import Menu from "./components/Menu/Menu";
+import Results from "./components/Results/Results";
 import { store, setStatus } from "./redux/app-redux";
 
 class App extends React.Component {
@@ -9,7 +10,7 @@ class App extends React.Component {
     super(props);
     this.changeStatus = this.changeStatus.bind(this);
     this.state = {
-      status: "menu"
+      status: "results"
     };
   }
   changeStatus() {
@@ -23,8 +24,10 @@ class App extends React.Component {
         <header className="App-header">
           {this.state.status === "loading" ? (
             <Loading />
-          ) : (
+          ) : this.state.status === "menu" ? (
             <Menu startSim={this.changeStatus} />
+          ) : (
+            <Results startSim={this.changeStatus} />
           )}
         </header>
       </div>
