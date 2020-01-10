@@ -3,24 +3,24 @@
 }
 
 .elevator {
-  height: 40vmin;
+  height: 250px;
   pointer-events: none;
   transform: translateY(20%);
 }
 
 .elevator-moving {
-  height: 40vmin;
+  height: 250px;
   pointer-events: none;
 }
 
 .loading {
-  margin-top: 20vmin;
+  margin-top: 18vmin;
 }
 
 .row {
   display: flex;
   flex-direction: row;
-  margin-top: 10vmin;
+  margin-top: 40px;
 }
 
 p {
@@ -34,12 +34,21 @@ p {
 }
 
 .App-header {
-  min-height: 100vh;
+  min-height: 90vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.top-left {
+  text-align: left;
+  margin-left: 20px;
+  font-size: 16pt;
+  font-weight: 800;
+  letter-spacing: 2pt;
   color: white;
 }
 

@@ -10,7 +10,7 @@ class App extends React.Component {
     super(props);
     this.changeStatus = this.changeStatus.bind(this);
     this.state = {
-      status: "results"
+      status: "menu"
     };
   }
   changeStatus() {
@@ -21,6 +21,7 @@ class App extends React.Component {
   render() {
     return (
       <div className="App">
+        <p className="top-left">LVTR</p>
         <header className="App-header">
           {this.state.status === "loading" ? (
             <Loading />

@@ -9,10 +9,10 @@ const Menu = props => {
       <img src={elevator} className="elevator" alt="logo" />
       <div className="row">
         <LvtrButton
-          label={"Start simulation 1"}
+          label={"Random assignment"}
           handleClick={() => props.startSim()}
         />
-        <LvtrButton label={"Start simulation 2"} />
+        <LvtrButton label={"Custom assignment"} />
       </div>
     </div>
   );
