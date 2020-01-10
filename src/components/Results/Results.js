@@ -23,7 +23,7 @@ function makeElevatorActions(calls) {
 }
 
 // function to choose which elevator responds to the call
-function chooseElevator(callOrigin, direction) {
+function chooseElevator(callOrigin, callDir) {
   let posAequalsPosB = shaftA.position == shaftB.position;
   let posAequalsPosC = shaftA.position == shaftC.position;
   let posBequalsPosC = shaftB.position == shaftC.position;
@@ -37,13 +37,30 @@ function chooseElevator(callOrigin, direction) {
   let distanceC = shaftC.position - callOrigin;
 
   // invalid floor input
-  if (floor < 0 || floor > 99) return -1;
-  // if all the elevators have the same position
+  if (callOrigin < 0 || callOrigin > 99) return -1;
+  // if all the elevators are equidistant from the call origin
   else if (posAequalsPosB && posBequalsPosC) {
     if (dirAequalsdirB && dirBequalsdirC) return chooseRandomElevator();
-  } else if (shaft1equalsShaft2) {
-    if (Math.abs(distance3) < Math.abs(distance1)) return 3;
-    else return chooseBetween(1, 2);
+    else if (dirAequalsdirB) {
+      /* NOTE: I chose to prioritize an elevator not already moving over an elevator moving in the same direction as the call
+            - they will not have any passengers and the distance is all the same here */
+      if (shaftA.direction == 0) return chooseBetween(1, 2);
+      else if (shaftC.direction == 0) return 3;
+      else if (shaftA.direction == callDir) return chooseBetween(1, 2);
+      else return 3;
+    } else if (dirAequalsdirC) {
+      if (shaftA.direction == 0) return chooseBetween(1, 3);
+      else if (shaftB.direction == 0) return 2;
+      else if (shaftA.direction == callDir) return chooseBetween(1, 3);
+      else return 2;
+    } else if (dirBequalsdirC) {
+      if (shaftB.direction == 0) return chooseBetween(2, 3);
+      else if (shaftA.direction == 0) return 1;
+      else if (shaftB.direction == callDir) return chooseBetween(2, 3);
+      else return 1;
+    }
+    // if elevators A and B are equidistant from the call origin
+  } else if (posAequalsPosB) {
   }
 }
 
