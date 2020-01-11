@@ -13,6 +13,7 @@ class App extends React.Component {
       status: "menu"
     };
   }
+
   changeStatus() {
     store.dispatch(setStatus("loading"));
     this.setState({ status: "loading" });

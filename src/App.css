@@ -27,6 +27,10 @@ p {
   font-family: monospace;
 }
 
+span {
+  color: #800000;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .elevator-moving {
     animation: elevator-bounce infinite alternate 1s ease-out;

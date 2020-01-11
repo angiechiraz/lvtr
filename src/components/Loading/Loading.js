@@ -1,71 +1,212 @@
 import React from "react";
 import elevator from "../../assets/elevator.png";
 import "../../App.css";
-var numbers = require("numbers");
+import { store } from "../../redux/app-redux";
 const unirand = require("unirand");
+unirand.seed(store.getState().seed); // keeping the seed consistent
 
-function generateData() {
-  //  generate number of calls for each floor for 1 min, uniform dist
-  //  **ASSUMING average of 10 calls per minute, doesn't really matter (*triple check?), for a half hour
-  unirand.seed("lvtr");
-  var timeSeries = []; // [0: {{floor: , desitnation, numPassengers: }, {}}, 1: {{floor: , desitnation, numPassengers: }, {}},...]
-  //var totalCalls = unirand.uniform(0,72000);
-  unirand
-    .uniform(0, 10)
-    .distribution(99)
-    .then(nCalls => {
-      //  generate number of passengers per call for each floor
-      var nPassengersPerCall = new Array(99);
-      for (var i = 2; i < 101; i++) {
-        //  **CHECK I'm just using mean of .7 and sd of .5, what do we want
-        if (nCalls[i] > 0) {
-          nPassengersPerCall[i] = numbers.random.distribution.logNormal(
-            Math.round(nCalls[i]),
-            0.7,
-            0.5
-          );
-          nPassengersPerCall[i] = nPassengersPerCall[i].map(function(
-            each_element
-          ) {
-            return Number(Math.min(Math.round(each_element), 5));
-          });
+// create elevator objects
+// if direction = 0 elevator is not moving, direction = 1 elevator is moving up, -1 moving down
+// positions are 0-99, 0 is Lobby
+var shaftA = [{ direction: 0 }, { position: 0 }, { passengers: 0 }];
+var shaftB = [{ direction: 0 }, { position: 0 }, { passengers: 0 }];
+var shaftC = [{ direction: 0 }, { position: 0 }, { passengers: 0 }];
 
-          var destinations = numbers.random.sample(
-            2,
-            100,
-            Math.round(nCalls[i])
-          );
-          var passengersAndDestinations = nPassengersPerCall[i].map(function(
-            e,
-            f
-          ) {
-            return {
-              time: Math.round(Math.random() * 30), // random time in the half hour b/c unif. dist.
-              floor: i,
-              numPassengers: e,
-              destination: Math.round(destinations[f])
-            };
-          });
-          nPassengersPerCall[i] = passengersAndDestinations;
-          for (var min = 0; min < nPassengersPerCall[i].length; min++) {
-            timeSeries.push(passengersAndDestinations[min]);
-          }
+// create function to take calls as input and output elevator actions
+// calls are objects {time: ___, origin: __, destination: __, passengers: ___}
+function makeElevatorActions(calls) {
+  // declare elevator action time series
+  // should contain objects {time: ____, bank: ____, destination: ____}
+  var actions = [];
+
+  for (var index = 0; index < calls.length; index++) {}
+}
+
+// function to choose which elevator responds to the call
+function chooseElevator(callOrigin, callDir) {
+  let posAequalsPosB = shaftA.position === shaftB.position;
+  let posAequalsPosC = shaftA.position === shaftC.position;
+  let posBequalsPosC = shaftB.position === shaftC.position;
+
+  let dirAequalsdirB = shaftA.direction === shaftB.direction;
+  let dirAequalsdirC = shaftA.direction === shaftC.direction;
+  let dirBequalsdirC = shaftB.direction === shaftC.direction;
+
+  let distanceA = shaftA.position - callOrigin;
+  let distanceB = shaftB.position - callOrigin;
+  let distanceC = shaftC.position - callOrigin;
+
+  // check if shaft is going in the opposite direction of the call
+  let isAmovingOpposite = shaftA.direction === -1 * callDir;
+  let isBmovingOpposite = shaftB.direction === -1 * callDir;
+  let isCmovingOpposite = shaftC.direction === -1 * callDir;
+
+  // invalid floor input
+  if (callOrigin < 0 || callOrigin > 99) return -1;
+  else if (posAequalsPosB && posBequalsPosC) {
+    // if all the elevators are equidistant from the call origin
+    if (dirAequalsdirB && dirBequalsdirC) return chooseRandomElevator();
+    else if (dirAequalsdirB) {
+      /* NOTE: I chose to prioritize an elevator not already moving over an elevator moving in the same direction as the call
+            - they will not have any passengers and the distance is all the same here */
+      if (shaftA.direction === 0) return chooseBetween(1, 2);
+      else if (shaftC.direction === 0) return 3;
+      else if (shaftA.direction === callDir) return chooseBetween(1, 2);
+      else return 3;
+    } else if (dirAequalsdirC) {
+      if (shaftA.direction === 0) return chooseBetween(1, 3);
+      else if (shaftB.direction === 0) return 2;
+      else if (shaftA.direction === callDir) return chooseBetween(1, 3);
+      else return 2;
+    } else if (dirBequalsdirC) {
+      if (shaftB.direction === 0) return chooseBetween(2, 3);
+      else if (shaftA.direction === 0) return 1;
+      else if (shaftB.direction === callDir) return chooseBetween(2, 3);
+      else return 1;
+    }
+    // if elevators A and B are equidistant from the call origin
+  } else if (posAequalsPosB) {
+    if (Math.abs(distanceA) < Math.abs(distanceC)) {
+      // A and B are closer and at least one is not moving the wrong direction, go compare
+      if (!isAmovingOpposite || !isBmovingOpposite)
+        return compareAB(dirAequalsdirB, isAmovingOpposite, isBmovingOpposite);
+      else if (!isCmovingOpposite) return 3; // C is only one in unopposing direction
+    } else {
+      // C is closest
+      if (!isCmovingOpposite) return 3;
+      // C is moving the wrong way
+      else if (!isAmovingOpposite || !isBmovingOpposite) {
+        // A and B are further but at least one is moving the right direction, go compare
+        return compareAB(dirAequalsdirB, isAmovingOpposite, isBmovingOpposite);
+      } else return chooseRandomElevator(); // all are in an opposing direction to the call, pick a random one
+    }
+  } else if (posBequalsPosC) {
+    if (Math.abs(distanceB) < Math.abs(distanceA)) {
+      if (!isBmovingOpposite || !isCmovingOpposite)
+        return compareBC(dirBequalsdirC, isBmovingOpposite, isCmovingOpposite);
+      else if (!isAmovingOpposite) return 1;
+    } else {
+      if (!isAmovingOpposite) return 1;
+      else if (!isBmovingOpposite || !isCmovingOpposite)
+        return compareBC(dirBequalsdirC, isBmovingOpposite, isCmovingOpposite);
+      else return chooseRandomElevator();
+    }
+  } else if (posAequalsPosC) {
+    if (Math.abs(distanceA) < Math.abs(distanceB)) {
+      if (!isAmovingOpposite || !isCmovingOpposite)
+        return compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite);
+      else if (!isBmovingOpposite) return 2;
+    } else {
+      if (!isBmovingOpposite) return 2;
+      else if (!isAmovingOpposite || !isCmovingOpposite)
+        return compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite);
+      else return chooseRandomElevator();
+    }
+  } else {
+    // all are diff distances apart
+    if (isAmovingOpposite) {
+      if (isBmovingOpposite)
+        if (isCmovingOpposite) {
+          // all aren't moving in call direction
+          return chooseRandomElevator();
+        } // c is the only one moving in call direction
+        else return 3;
+      else {
+        // B moving in call direction, A is not
+        if (isCmovingOpposite) return 2;
+        // B and C moving in call direction, choose closest
+        else if (Math.abs(distanceB) < Math.abs(distanceC)) return 2;
+        else return 3;
+      }
+    } else {
+      // A is moving in call direction
+      if (isBmovingOpposite) {
+        if (isCmovingOpposite) {
+          return 1;
         } else {
-          nPassengersPerCall[i] = [];
+          // A and C moving in call direction, not B, choose closest
+          if (Math.abs(distanceA) < Math.abs(distanceC)) return 1;
+          else return 3;
+        }
+      } else {
+        // A and B moving in call direction
+        if (isCmovingOpposite) {
+          if (Math.abs(distanceA) < Math.abs(distanceB)) return 1;
+          else return 2;
+        } else {
+          // all moving in call direction, return the closest shaft
+          if (Math.abs(distanceA) < Math.abs(distanceB)) {
+            if (Math.abs(distanceA) < Math.abs(distanceC)) return 1;
+            else return 3;
+          } else {
+            if (Math.abs(distanceB) < Math.abs(distanceC)) return 2;
+            else return 3;
+          }
         }
       }
+    }
+  }
+}
 
-      console.log(timeSeries);
-    });
+function chooseRandomElevator() {
+  return Math.round(unirand.uniform(1, 3).random());
+}
+
+function chooseBetween(a, b) {
+  if (unirand.next() < 0.5) return a;
+  else return b;
+}
+
+// compare shafts A and B when they are equidistant to elevator and less distant than C
+function compareAB(dirAequalsdirB, isAmovingOpposite, isBmovingOpposite) {
+  if (!isAmovingOpposite) {
+    // if neither are moving in the opposite direction of the call, choose either
+    if (dirAequalsdirB) return chooseBetween(1, 2);
+    else if (shaftA.direction === 0) return 1;
+    // A has no passengers
+    else if (shaftB.direction === 0) return 2;
+    // B has no passengers
+    else return 1; // B is in the opposite direction, return A
+  } else if (!isBmovingOpposite) {
+    // B is closer than C and is in unopposing direction
+    return 2;
+  }
+}
+
+function compareBC(dirBequalsdirC, isBmovingOpposite, isCmovingOpposite) {
+  if (!isBmovingOpposite) {
+    if (dirBequalsdirC) return chooseBetween(2, 3);
+    else if (shaftB.direction === 0) return 2;
+    else if (shaftC.direction === 0) return 3;
+    else return 2; // C is moving in wrong direction, return B
+  } else if (!isCmovingOpposite) {
+    return 3;
+  }
+}
+
+function compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite) {
+  if (!isAmovingOpposite) {
+    if (dirAequalsdirC) return chooseBetween(1, 3);
+    else if (shaftA.direction === 0) return 1;
+    else if (shaftC.direction === 0) return 3;
+    else return 1;
+  } else if (!isCmovingOpposite) {
+    return 3;
+  }
 }
 
 function Loading() {
-  generateData();
+  makeElevatorActions();
   return (
     <div>
       <img src={elevator} className="elevator-moving" alt="logo" />
       <p className="loading">
-        <code>Simulating first approach...</code>
+        <code>
+          {store.getState().approach === "random"
+            ? "Random "
+            : "Nearest unopposing direction "}
+          elevator assignment...
+        </code>
       </p>
     </div>
   );
