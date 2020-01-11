@@ -5,21 +5,62 @@ import { store } from "../../redux/app-redux";
 const unirand = require("unirand");
 unirand.seed(store.getState().seed); // keeping the seed consistent
 
-// create elevator objects
-// if direction = 0 elevator is not moving, direction = 1 elevator is moving up, -1 moving down
-// positions are 0-99, 0 is Lobby
+/* create elevator objects
+ direction = 0 means elevator is not answering any calls, 
+ direction = 1 means elevator is heading to answer a call where passengers are trying to go up,
+ direction = -1 means it is heading to answer a call where passengers are trying to go down.
+ positions are 0-99, 0 is Lobby
+ passengers = # of passengers elevator is CURRENTLY holding, not number of passengers it will be holding after it fulfills it's next call(s) */
 var shaftA = [{ direction: 0 }, { position: 0 }, { passengers: 0 }];
 var shaftB = [{ direction: 0 }, { position: 0 }, { passengers: 0 }];
 var shaftC = [{ direction: 0 }, { position: 0 }, { passengers: 0 }];
+var elevators = [
+  { direction: 0, position: 0, passengers: 0 },
+  { direction: 0, position: 0, passengers: 0 },
+  { direction: 0, position: 0, passengers: 0 }
+];
 
 // create function to take calls as input and output elevator actions
 // calls are objects {time: ___, origin: __, destination: __, passengers: ___}
 function makeElevatorActions(calls) {
   // declare elevator action time series
-  // should contain objects {time: ____, bank: ____, destination: ____}
+  // should contain objects {time: ____, shaft: ____, destination: ____}
   var actions = [];
 
-  for (var index = 0; index < calls.length; index++) {}
+  for (var index = 0; index < calls.length; index++) {
+    let call = calls[index];
+    let callDir = getCallDirction(call.origin, call.destination);
+    let elevatorNum = null;
+    if (store.getState().approach === "random")
+      elevatorNum = chooseRandomElevator();
+    else elevatorNum = chooseElevator(call.origin, callDir);
+    actions.push({
+      time: call.time,
+      shaft: elevator,
+      destination: call.destination
+    });
+    console.log(elevatorNum + " in direction " + callDir);
+    // update the chosen elevator
+    updateElevator(elevatorNum, callDir, call.passengers);
+  }
+}
+
+function getCallDirction(origin, destination) {
+  // assuming it's impossible for a user to request an elevator bringing them to the floor they are already on
+  if (origin < destination) return 1;
+  else return -1;
+}
+
+function updateElevator(elevatorNum, callDir, passengers) {
+  let chosenElevator = elevators[elevatorNum - 1];
+  chosenElevator.direction = callDir;
+  console.log(elevators);
+
+  // let currentNumPassengers = chosenElevator.passengers;
+  // // if number of passengers will exceed
+  // if (currentNumPassengers + passengers > 10) {
+  // } else
+  //   chosenElevator.passengers = elevators[elevator - 1].passengers + passengers;
 }
 
 // function to choose which elevator responds to the call
@@ -149,7 +190,8 @@ function chooseElevator(callOrigin, callDir) {
 }
 
 function chooseRandomElevator() {
-  return Math.round(unirand.uniform(1, 3).random());
+  // get next random number between 1 and 3, 1 representing shaft A, 2 is shaft B, 3 is shaft C
+  return 1 + Math.floor(unirand.next() * 3);
 }
 
 function chooseBetween(a, b) {
@@ -196,7 +238,7 @@ function compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite) {
 }
 
 function Loading() {
-  makeElevatorActions();
+  makeElevatorActions([{ time: 0, origin: 6, destination: 10, passengers: 8 }]);
   return (
     <div>
       <img src={elevator} className="elevator-moving" alt="logo" />
