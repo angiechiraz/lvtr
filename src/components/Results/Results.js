@@ -36,6 +36,11 @@ function chooseElevator(callOrigin, callDir) {
   let distanceB = shaftB.position - callOrigin;
   let distanceC = shaftC.position - callOrigin;
 
+  // check if shaft is going in the opposite direction of the call
+  let isAmovingOpposite = shaftA.direction == -1 * callDir;
+  let isBmovingOpposite = shaftB.direction == -1 * callDir;
+  let isCmovingOpposite = shaftC.direction == -1 * callDir;
+
   // invalid floor input
   if (callOrigin < 0 || callOrigin > 99) return -1;
   // if all the elevators are equidistant from the call origin
@@ -62,26 +67,43 @@ function chooseElevator(callOrigin, callDir) {
     // if elevators A and B are equidistant from the call origin
   } else if (posAequalsPosB) {
     if (Math.abs(distanceA) < Math.abs(distanceC)) {
-      if (shaftA.direction == callDir || shaftA.direction == 0) {
-        // A is closer than C and is in unopposing direction, check and compare B's direction
-        compareAB();
-      } else if (shaftB.direction == callDir || shaftB.direction == 0) {
-        // B is closer than C and is in unopposing direction
-        return 2;
-      } else if (shaftC.direction == callDir || shaftC.direction == 0) return 3; // C is only one in unopposing direction
+      // A and B are closer and at least one is not moving the wrong direction, go compare
+      if (!isAmovingOpposite || !isBmovingOpposite)
+        return compareAB(dirAequalsdirB, isAmovingOpposite, isBmovingOpposite);
+      else if (!isCmovingOpposite) return 3; // C is only one in unopposing direction
     } else {
-      if (shaftC.direction == callDir || shaftC.direction == 0) return 3;
-      // C is closer and in unopposing direction
-      else if (shaftA.direction == callDir || shaftA.direction == 0) {
-        // A is further but in unopposing direction, check and compare B's direction
-        compareAB();
-      } else if (shaftB.direction == callDir || shaftB.direction == 0) {
-        // B is further but is only one in unopposing direction
-        return 2;
+      // C is closest
+      if (!isCmovingOpposite) return 3;
+      // C is moving the wrong way
+      else if (!isAmovingOpposite || !isBmovingOpposite) {
+        // A and B are further but at least one is moving the right direction, go compare
+        return compareAB(dirAequalsdirB, isAmovingOpposite, isBmovingOpposite);
       } else return chooseRandomElevator(); // all are in an opposing direction to the call, pick a random one
     }
   } else if (posBequalsPosC) {
+    if (Math.abs(distanceB) < Math.abs(distanceA)) {
+      if (!isBmovingOpposite || !isCmovingOpposite)
+        return compareBC(dirBequalsdirC, isBmovingOpposite, isCmovingOpposite);
+      else if (!isAmovingOpposite) return 1;
+    } else {
+      if (!isAmovingOpposite) return 1;
+      else if (!isBmovingOpposite || !isCmovingOpposite)
+        return compareBC(dirBequalsdirC, isBmovingOpposite, isCmovingOpposite);
+      else return chooseRandomElevator();
+    }
   } else if (posAequalsPosC) {
+    if (Math.abs(distanceA) < Math.abs(distanceC)) {
+      if (!isAmovingOpposite || !isCmovingOpposite)
+        return compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite);
+      else if (!isBmovingOpposite) return 2;
+    } else {
+      if (!isBmovingOpposite) return 2;
+      else if (!isAmovingOpposite || !isCmovingOpposite)
+        return compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite);
+      else return chooseRandomElevator();
+    }
+  } else {
+    // all are diff distances apart
   }
 }
 
@@ -93,12 +115,42 @@ function chooseBetween(a, b) {
   return unirand.uniform(1, 2).random();
 }
 
-function compareAB() {
-  let dirAequalsdirB = shaftA.direction == shaftB.direction;
-  if (dirAequalsdirB) return chooseBetween(1, 2);
-  else if (shaftA.direction == 0) return 1;
-  else if (shaftB.direction == 0) return 2;
-  else return 1;
+// compare shafts A and B when they are equidistant to elevator and less distant than C
+function compareAB(dirAequalsdirB, isAmovingOpposite, isBmovingOpposite) {
+  if (!isAmovingOpposite) {
+    // if neither are moving in the opposite direction of the call, choose either
+    if (dirAequalsdirB) return chooseBetween(1, 2);
+    else if (shaftA.direction == 0) return 1;
+    // A has no passengers
+    else if (shaftB.direction == 0) return 2;
+    // B has no passengers
+    else return 1; // B is in the opposite direction, return A
+  } else if (!isBmovingOpposite) {
+    // B is closer than C and is in unopposing direction
+    return 2;
+  }
+}
+
+function compareBC(dirBequalsdirC, isBmovingOpposite, isCmovingOpposite) {
+  if (!isBmovingOpposite) {
+    if (dirBequalsdirC) return chooseBetween(2, 3);
+    else if (shaftB.direction == 0) return 2;
+    else if (shaftC.direction == 0) return 3;
+    else return 2; // C is moving in wrong direction, return B
+  } else if (!isCmovingOpposite) {
+    return 3;
+  }
+}
+
+function compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite) {
+  if (!isAmovingOpposite) {
+    if (dirAequalsdirC) return chooseBetween(1, 3);
+    else if (shaftA.direction == 0) return 1;
+    else if (shaftC.direction == 0) return 3;
+    else return 1;
+  } else if (!isCmovingOpposite) {
+    return 3;
+  }
 }
 
 const Results = props => {
