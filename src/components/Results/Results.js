@@ -92,7 +92,7 @@ function chooseElevator(callOrigin, callDir) {
       else return chooseRandomElevator();
     }
   } else if (posAequalsPosC) {
-    if (Math.abs(distanceA) < Math.abs(distanceC)) {
+    if (Math.abs(distanceA) < Math.abs(distanceB)) {
       if (!isAmovingOpposite || !isCmovingOpposite)
         return compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite);
       else if (!isBmovingOpposite) return 2;
@@ -104,6 +104,47 @@ function chooseElevator(callOrigin, callDir) {
     }
   } else {
     // all are diff distances apart
+    if (isAmovingOpposite) {
+      if (isBmovingOpposite)
+        if (isCmovingOpposite) {
+          // all aren't moving in call direction
+          return chooseRandomElevator();
+        } // c is the only one moving in call direction
+        else return 3;
+      else {
+        // B moving in call direction, A is not
+        if (isCmovingOpposite) return 2;
+        // B and C moving in call direction, choose closest
+        else if (Math.abs(distanceB) < Math.abs(distanceC)) return 2;
+        else return 3;
+      }
+    } else {
+      // A is moving in call direction
+      if (isBmovingOpposite) {
+        if (isCmovingOpposite) {
+          return 1;
+        } else {
+          // A and C moving in call direction, not B, choose closest
+          if (Math.abs(distanceA) < Math.abs(distanceC)) return 1;
+          else return 3;
+        }
+      } else {
+        // A and B moving in call direction
+        if (isCmovingOpposite) {
+          if (Math.abs(distanceA) < Math.abs(distanceB)) return 1;
+          else return 2;
+        } else {
+          // all moving in call direction, return the closest shaft
+          if (Math.abs(distanceA) < Math.abs(distanceB)) {
+            if (Math.abs(distanceA) < Math.abs(distanceC)) return 1;
+            else return 3;
+          } else {
+            if (Math.abs(distanceB) < Math.abs(distanceC)) return 2;
+            else return 3;
+          }
+        }
+      }
+    }
   }
 }
 
