@@ -61,6 +61,27 @@ function chooseElevator(callOrigin, callDir) {
     }
     // if elevators A and B are equidistant from the call origin
   } else if (posAequalsPosB) {
+    if (Math.abs(distanceA) < Math.abs(distanceC)) {
+      if (shaftA.direction == callDir || shaftA.direction == 0) {
+        // A is closer than C and is in unopposing direction, check and compare B's direction
+        compareAB();
+      } else if (shaftB.direction == callDir || shaftB.direction == 0) {
+        // B is closer than C and is in unopposing direction
+        return 2;
+      } else if (shaftC.direction == callDir || shaftC.direction == 0) return 3; // C is only one in unopposing direction
+    } else {
+      if (shaftC.direction == callDir || shaftC.direction == 0) return 3;
+      // C is closer and in unopposing direction
+      else if (shaftA.direction == callDir || shaftA.direction == 0) {
+        // A is further but in unopposing direction, check and compare B's direction
+        compareAB();
+      } else if (shaftB.direction == callDir || shaftB.direction == 0) {
+        // B is further but is only one in unopposing direction
+        return 2;
+      } else return chooseRandomElevator(); // all are in an opposing direction to the call, pick a random one
+    }
+  } else if (posBequalsPosC) {
+  } else if (posAequalsPosC) {
   }
 }
 
@@ -70,6 +91,14 @@ function chooseRandomElevator() {
 
 function chooseBetween(a, b) {
   return unirand.uniform(1, 2).random();
+}
+
+function compareAB() {
+  let dirAequalsdirB = shaftA.direction == shaftB.direction;
+  if (dirAequalsdirB) return chooseBetween(1, 2);
+  else if (shaftA.direction == 0) return 1;
+  else if (shaftB.direction == 0) return 2;
+  else return 1;
 }
 
 const Results = props => {
