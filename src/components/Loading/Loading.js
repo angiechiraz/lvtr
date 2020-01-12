@@ -66,7 +66,10 @@ function makeElevatorActions(calls) {
     elevators.forEach(function(elevator, index) {
       // if the elevator has an assigned call
       if (elevator.pendingRequests.length > 0) {
-        if (elevator.currentDirection === 0)
+        if (
+          elevator.currentDirection === 0 &&
+          elevator.position !== elevator.pendingRequests[0].origin
+        )
           console.log(
             "error: elevator was never set in motion for an assigned call"
           );
