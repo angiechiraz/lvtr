@@ -66,7 +66,7 @@ function makeElevatorActions(calls, changeStatus) {
   // loop until all passengers have arrived at their desintation
   while (!allCallsAnswered) {
     // if there are any calls left in the time series, check if any are happening at current time
-    if (t > 1000) {
+    if (t > 5000) {
       console.log("stuck");
       console.log(sos);
       console.log(elevators);
@@ -317,6 +317,9 @@ function makeElevatorActions(calls, changeStatus) {
                 t - call.pickUpTime === transitionTime
               ) {
                 // set elevator direction back since it was at 0
+                /* even if the previous currentDirection was going towards another call in the queue,
+                  it would be jarring to a passenger to be taken in the direction opposite their destination.
+                  stick with direction of call */
                 elevator.currentDirection = elevator.direction;
 
                 if (call.neglectedPassengers > 0) {
@@ -381,40 +384,50 @@ function makeElevatorActions(calls, changeStatus) {
 
 function resetElevatorDirection(shaftIndex, calls) {
   let elevator = elevators[shaftIndex];
-
-  var countCallsinDirection = calls.filter(
-    call =>
-      getCallDirection(call.origin, call.destination) === elevator.direction
-  ).length;
-
-  // if all the pending calls in the previous direction were handled, set direction to the next (earliest made) pending request
-  if (countCallsinDirection === 0) {
-    console.log(
-      "switching to handle calls that were previously in the unassigned direction"
+  if (calls.length === 1) {
+    elevator.direction = getCallDirection(
+      calls[0].origin,
+      calls[0].destination
     );
-    let nextCall = elevator.pendingRequests[0];
-    let nextCallDir = getCallDirection(nextCall.origin, nextCall.destination);
-    let nextElevatorDirection = getCallDirection(
+    elevator.currentDirection = getCallDirection(
       elevator.position,
-      nextCall.origin
+      calls[0].origin
     );
-    elevator.direction = nextCallDir;
-    elevator.currentDirection = nextElevatorDirection;
   } else {
-    // otherwise, keep same direction but find out whatever the next currentDirection should be
-    let newDirection = null;
-    let callIndex = 0;
-    while (newDirection === null) {
-      let call = calls[callIndex];
-      let callDir = getCallDirection(call.origin, call.destination);
-      if (callDir === elevator.direction) {
-        // head in direction of next appropriate call origin
-        newDirection = getCallDirection(elevator.position, call.origin);
-      } else {
-        callIndex++;
+    var countCallsinDirection = calls.filter(
+      call =>
+        getCallDirection(call.origin, call.destination) === elevator.direction
+    ).length;
+
+    // if all the pending calls in the previous direction were handled, set direction to the next (earliest made) pending request
+    if (countCallsinDirection === 0) {
+      console.log(
+        "switching to handle calls that were previously in the unassigned direction"
+      );
+      let nextCall = elevator.pendingRequests[0];
+      let nextCallDir = getCallDirection(nextCall.origin, nextCall.destination);
+      let nextElevatorDirection = getCallDirection(
+        elevator.position,
+        nextCall.origin
+      );
+      elevator.direction = nextCallDir;
+      elevator.currentDirection = nextElevatorDirection;
+    } else {
+      // otherwise, keep same direction but find out whatever the next currentDirection should be
+      let newDirection = null;
+      let callIndex = 0;
+      while (newDirection === null) {
+        let call = calls[callIndex];
+        let callDir = getCallDirection(call.origin, call.destination);
+        if (callDir === elevator.direction) {
+          // head in direction of next appropriate call origin
+          newDirection = getCallDirection(elevator.position, call.origin);
+        } else {
+          callIndex++;
+        }
       }
+      elevator.currentDirection = newDirection;
     }
-    elevator.currentDirection = newDirection;
   }
 }
 
