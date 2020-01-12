@@ -141,7 +141,7 @@ function makeElevatorActions(calls, changeStatus) {
               // start ride time tracking for these passengers
               for (var p = 0; p < call.passengers; p++) {
                 // wait time for each passeneger was current time minus the time of the call
-                waitTimes.push(t - call.time);
+                waitTimes.push(t - call.time + call.miscTime);
                 /* the pick up time needs to be accounted for when we calculate total time spent, and
                   since it's not part of wait time or ride time here, store it */
                 transitionTimes.push(pickupTransition);
@@ -179,9 +179,202 @@ function makeElevatorActions(calls, changeStatus) {
           }
         } else {
           // handle multiple assigned calls
-          // first handle only the ones in the assigned direction
-          // *handle calls with too many passengers for elevator
           let calls = elevator.pendingRequests;
+
+          /* we only want to handle calls going in the currently assigned direction first, 
+               even if this is not the current moving direction */
+          var countCallsinDirection = calls.filter(
+            call =>
+              getCallDirection(call.origin, call.destination) ===
+              elevator.direction
+          ).length;
+
+          // if all the pending calls in the previous direction were handled, set direction to the next (earliest made) pending request
+          if (countCallsinDirection === 0) {
+            console.log(
+              "switching to handle calls that were previously in the unassigned direction"
+            );
+            let nextCall = elevator.pendingRequests[0];
+            let nextCallDir = getCallDirection(
+              nextCall.origin,
+              nextCall.destination
+            );
+            let nextElevatorDirection = getCallDirection(
+              elevator.position,
+              nextCall.origin
+            );
+            elevator.direction = nextCallDir;
+            elevator.currentDirection = nextElevatorDirection;
+          }
+
+          // count how many unpicked up calls we are at the origin of
+          // var callsFromPosition = calls.filter(
+          //   call =>
+          //     call.pickUpTime === null &&
+          //     elevator.position === call.origin &&
+          //     getCallDirection(call.origin, call.destination) ===
+          //       elevator.direction
+          // );
+          // // count how many calls we have already picked up that drop off here
+          // var callsToPosition = calls.filter(
+          //   call =>
+          //     call.pickUpTime !== null &&
+          //     call.dropOffTime === null &&
+          //     elevator.position === call.destination &&
+          //     getCallDirection(call.origin, call.destination) ===
+          //       elevator.direction
+          // );
+          // // count how many calls we already picked up here but are still loading passengers
+          // var callsLoading = calls.filter(
+          //   call =>
+          //     call.pickUpTime !== null &&
+          //     elevator.position === call.origin &&
+          //     getCallDirection(call.origin, call.destination) ===
+          //       elevator.direction &&
+          //     t < call.pickUpTime + (call.origin === 0 ? 30 : 5)
+          // );
+          // // count how many calls we already picked up but are still unloading passengers here
+          // var callsUnloading = calls.filter(
+          //   call =>
+          //     call.dropOffTime !== null &&
+          //     elevator.position === call.destination &&
+          //     getCallDirection(call.origin, call.destination) ===
+          //       elevator.direction &&
+          //     t < call.dropOffTime + (call.destination === 0 ? 30 : 5)
+          // );
+
+          // if we don't have any people to pick up here or drop off, and no transitions underway, move position
+          // if (
+          //   callsFromPosition.length +
+          //     callsToPosition.length +
+          //     callsLoading.length +
+          //     callsUnloading.length ===
+          //   0
+          // ) {
+          //   elevator.position = elevator.position + elevator.currentDirection;
+          // }
+
+          /* update elevator position. for cases in which elevator is currently still dropping people off or 
+            picking people up, the currentDirection should be set to zero */
+          elevator.position = elevator.position + elevator.currentDirection;
+
+          // count how many unpicked up calls we are now at the origin of
+          var callsFromPosition = calls.filter(
+            call =>
+              call.pickUpTime === null &&
+              elevator.position === call.origin &&
+              getCallDirection(call.origin, call.destination) ===
+                elevator.direction
+          );
+          // // count how many calls we have already picked up that drop off here
+          var callsToPosition = calls.filter(
+            call =>
+              call.pickUpTime !== null &&
+              call.dropOffTime === null &&
+              elevator.position === call.destination &&
+              getCallDirection(call.origin, call.destination) ===
+                elevator.direction
+          );
+          // // count how many calls we already picked up here but are still loading passengers
+          var callsLoading = calls.filter(
+            call =>
+              call.pickUpTime !== null &&
+              elevator.position === call.origin &&
+              t < call.pickUpTime + (call.origin === 0 ? 30 : 5)
+          );
+          // // count how many calls we are already at the destination of but are still unloading passengers here
+          var callsUnloading = calls.filter(
+            call =>
+              call.dropOffTime !== null &&
+              elevator.position === call.destination &&
+              t < call.dropOffTime + (call.destination === 0 ? 30 : 5)
+          );
+
+          if (callsToPosition.length > 0) {
+            /* drop off passengers who have this destination before picking up new ones, will affect # passengers */
+            elevator.currentDirection = 0;
+            calls.forEach(function(call, requestIndex) {
+              // if it is in the assigned direction
+              if (
+                getCallDirection(call.origin, call.destination) ===
+                elevator.direction
+              ) {
+                if (
+                  call.pickUpTime !== null &&
+                  call.destination === elevator.position &&
+                  call.dropOffTime === null
+                ) {
+                  console.log("made it to destination!");
+                  elevator.pendingRequests[requestIndex].dropOffTime = t;
+                }
+              }
+            });
+          }
+          /* pick up passengers who have this origin, and edit pending action to record 
+            how many people from that call actually got on the elevator*/
+          if (callsFromPosition.length > 0) {
+            elevator.currentDirection = 0;
+            calls.forEach(function(call, requestIndex) {
+              // if it is in the assigned direction
+              if (
+                getCallDirection(call.origin, call.destination) ===
+                elevator.direction
+              ) {
+                if (
+                  call.pickUpTime === null &&
+                  call.origin === elevator.position
+                ) {
+                  console.log(
+                    "made it to pickup at floor " + elevator.position
+                  );
+                  let request = elevator.pendingRequests[requestIndex];
+                  request.pickUpTime = t;
+                  let totalPassengers =
+                    elevator.passengers + request.passengers;
+                  //update amount of passengers being accounted for currently
+                  if (totalPassengers > 10) {
+                    let passengersWhoDontFit = totalPassengers - 10;
+                    let passengersWhoMadeIt =
+                      request.passengers - passengersWhoDontFit;
+                    request.passengers = passengersWhoMadeIt;
+                    request.neglectedPassengers = passengersWhoDontFit;
+                    for (var n = 0; n < passengersWhoMadeIt; n++) {
+                      waitTimes.push(t - request.time + request.miscTime);
+                      transitionTimes.push(elevator.position === 0 ? 30 : 5);
+                    }
+                  } else {
+                    for (var n = 0; n < totalPassengers; n++) {
+                      waitTimes.push(t - request.time + request.miscTime);
+                      transitionTimes.push(elevator.position === 0 ? 30 : 5);
+                    }
+                  }
+                }
+              }
+            });
+          }
+
+          /* handle calls still being loaded - are we done loading? can we set current direction
+            and make a call for any neglected passengers? */
+          if (callsLoading.length > 0) {
+            calls.forEach(function(call, requestIndex) {
+              let transitionTime = elevator.position === 0 ? 30 : 5;
+              if (
+                call.pickUpTime !== null &&
+                call.origin === elevator.position &&
+                t - call.pickUpTime === transitionTime
+              ) {
+                elevator.currentDirection = getCallDirection(
+                  call.origin,
+                  call.destination
+                );
+                if (call.neglectedPassengers > 0) {
+                }
+              }
+            });
+          }
+
+          /* handle calls still being unloaded - are we done unloading? can we set current 
+            direction and record ride times? */
         }
       }
     });
@@ -449,7 +642,9 @@ const Loading = props => {
       destination: 0,
       passengers: 8,
       pickUpTime: null,
-      dropOffTime: null
+      dropOffTime: null,
+      neglectedPassengers: 0, // use later on for passengers who used to be part of this call that didn't make it on the elevator,
+      miscTime: 0 // use to account for unanticipated wait time, i.e. if people had to call multiple times
     },
     {
       time: 20,
@@ -457,7 +652,10 @@ const Loading = props => {
       destination: 68,
       passengers: 8,
       pickUpTime: null,
-      dropOffTime: null
+      dropOffTime: null,
+      modified: false,
+      neglectedPassengers: 0,
+      miscTime: 0
     }
   ];
   resetElevatorsandActions(); //reset in case someone is simulating again from this screen
