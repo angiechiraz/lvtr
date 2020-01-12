@@ -70,8 +70,16 @@ function makeElevatorActions(calls) {
           console.log(
             "error: elevator was never set in motion for an assigned call"
           );
-        elevators[index].position =
-          elevator.position + elevator.currentDirection;
+        // if the elevator is not currently letting passengers enter or exit, update its position
+        if (
+          elevator.pendingRequests[0].pickUpTime === null ||
+          (elevator.pendingRequests[0].pickUpTime != null &&
+            t - elevator.pendingRequests[0].pickUpTime >
+              (elevator.pendingRequests[0].origin === 0 ? 30 : 5))
+        ) {
+          elevators[index].position =
+            elevator.position + elevator.currentDirection;
+        }
         // if it only has one
         if (elevator.pendingRequests.length === 1) {
           let call = elevator.pendingRequests[0];
@@ -106,14 +114,14 @@ function makeElevatorActions(calls) {
             if (elevator.position === call.destination) {
               console.log("made it to destination!");
 
-              allCallsAnswered = true;
               // drop off passengers
               elevators[index].passengers =
                 elevators[index].passengers - call.passengers;
               // record ride times
               for (var r = 0; r < call.passengers; r++) {
-                // wait time for each passeneger was current time minus the time of the call
-                rideTimes.push(t - call.pickUpTime);
+                /* wait time for each passeneger was current time minus the time of the call
+                  and the 5 seconds it takes passengers to exit */
+                rideTimes.push(t + 5 - call.pickUpTime);
               }
               // remove pending action from elevator and stop moving
               elevators[index].pendingRequests.splice(0, 1);
@@ -148,8 +156,10 @@ function makeElevatorActions(calls) {
           elevators[1].pendingRequests.length +
           elevators[2].pendingRequests.length ===
         0
-      )
+      ) {
+        console.log("all calls have been taken care of");
         allCallsAnswered = true;
+      }
     }
     console.log(t);
     t++;
@@ -161,7 +171,7 @@ function makeElevatorActions(calls) {
       return a + b;
     }, 0) / waitTimes.length;
   let avgRide = rideTimes.reduce((a, b) => a + b, 0) / rideTimes.length;
-  console.log("avgwait: " + avgWait);
+  console.log("avg wait: " + avgWait);
   console.log("avg ride: " + avgRide);
   store.dispatch(setAvgWait(avgWait));
   store.dispatch(setAvgRide(avgRide));
@@ -189,7 +199,7 @@ function handleCall(call) {
 }
 
 function getCallDirection(origin, destination) {
-  if (origin === destination) console.log("already arrived at destination");
+  if (origin === destination) return 0;
   if (origin < destination) return 1;
   else return -1;
 }
@@ -393,7 +403,7 @@ function compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite) {
 
 function Loading() {
   let callTimeSeries = [
-    { time: 10, origin: 12, destination: 10, passengers: 8, pickUpTime: null }
+    { time: 10, origin: 0, destination: 10, passengers: 8, pickUpTime: null }
   ];
   makeElevatorActions(callTimeSeries);
   return (
