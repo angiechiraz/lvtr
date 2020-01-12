@@ -66,8 +66,12 @@ function makeElevatorActions(calls, changeStatus) {
   while (!allCallsAnswered) {
     // if there are any calls left in the time series, check if any are happening at current time
     if (callIndex < calls.length) {
+      if (calls[callIndex].time < t) {
+        console.log("ERROR: time series in not in time order");
+        allCallsAnswered = true;
+      }
       // handle all calls happening at this time
-      if (calls[callIndex].time === t) {
+      else if (calls[callIndex].time === t) {
         do {
           let call = calls[callIndex];
           // assign elevator to respond to call
@@ -386,11 +390,13 @@ function resetElevatorDirection(shaftIndex, calls) {
       let call = calls[callIndex];
       let callDir = getCallDirection(call.origin, call.destination);
       if (callDir === elevator.direction) {
+        // head in direction of next appropriate call origin
         newDirection = getCallDirection(elevator.position, call.origin);
       } else {
         callIndex++;
       }
     }
+    elevator.currentDirection = newDirection;
   }
 }
 
@@ -645,6 +651,16 @@ const Loading = props => {
       origin: 0,
       destination: 68,
       passengers: 8,
+      pickUpTime: null,
+      dropOffTime: null,
+      neglectedPassengers: 0,
+      miscTime: 0
+    },
+    {
+      time: 30,
+      origin: 10,
+      destination: 20,
+      passengers: 1,
       pickUpTime: null,
       dropOffTime: null,
       neglectedPassengers: 0,
