@@ -63,7 +63,7 @@ function generateData() {
 }
 
 const Menu = props => {
-  generateData();
+  // generateData();
   return (
     <div>
       <img src={elevator} className="elevator" alt="logo" />

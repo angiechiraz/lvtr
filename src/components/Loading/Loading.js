@@ -61,11 +61,17 @@ function makeElevatorActions(calls, changeStatus) {
   var waitTimes = [];
   var rideTimes = [];
   var transitionTimes = [];
+  var sos = "";
 
   // loop until all passengers have arrived at their desintation
   while (!allCallsAnswered) {
     // if there are any calls left in the time series, check if any are happening at current time
-    if (callIndex < calls.length) {
+    if (t > 1000) {
+      console.log("stuck");
+      console.log(sos);
+      console.log(elevators);
+      allCallsAnswered = true;
+    } else if (callIndex < calls.length) {
       if (calls[callIndex].time < t) {
         console.log("ERROR: time series in not in time order");
         allCallsAnswered = true;
@@ -149,7 +155,9 @@ function makeElevatorActions(calls, changeStatus) {
               // start ride time tracking for these passengers
               for (var p = 0; p < call.passengers; p++) {
                 // wait time for each passeneger was current time minus the time of the call
-                waitTimes.push(t - call.time + call.miscTime);
+                let wait = t - call.time + call.miscTime;
+                waitTimes.push(wait);
+                console.log("wait time: " + wait);
                 /* the pick up time needs to be accounted for when we calculate total time spent, and
                   since it's not part of wait time or ride time here, store it */
                 transitionTimes.push(pickupTransition);
@@ -215,7 +223,7 @@ function makeElevatorActions(calls, changeStatus) {
             call =>
               call.pickUpTime !== null &&
               elevator.position === call.origin &&
-              t < call.pickUpTime + (call.origin === 0 ? 30 : 5)
+              t <= call.pickUpTime + (call.origin === 0 ? 30 : 5)
           );
           //  count how many calls are already at their destination but are still unloading passengers here
           var callsUnloading = calls.filter(
@@ -296,16 +304,21 @@ function makeElevatorActions(calls, changeStatus) {
           if (callsLoading.length + callsUnloading.length > 0) {
             calls.forEach(function(call, requestIndex) {
               let transitionTime = elevator.position === 0 ? 30 : 5;
+              sos =
+                " made it in here with t - call.pickUpTime = " +
+                (t - call.pickUpTime) +
+                " and call.origin is " +
+                call.origin +
+                " and elevator position " +
+                elevator.position;
               if (
                 call.pickUpTime !== null &&
                 call.origin === elevator.position &&
                 t - call.pickUpTime === transitionTime
               ) {
-                // set elevator direction since it was at 0
-                elevator.currentDirection = getCallDirection(
-                  call.origin,
-                  call.destination
-                );
+                // set elevator direction back since it was at 0
+                elevator.currentDirection = elevator.direction;
+
                 if (call.neglectedPassengers > 0) {
                   /* make a call with # leftover passengers, with idential origin, dest, current time, 
                     and account for time they already waited */
@@ -652,7 +665,7 @@ const Loading = props => {
       miscTime: 0 // use to account for unanticipated wait time, i.e. if people had to call multiple times
     },
     {
-      time: 20,
+      time: 2,
       origin: 0,
       destination: 68,
       passengers: 8,
@@ -662,7 +675,7 @@ const Loading = props => {
       miscTime: 0
     },
     {
-      time: 22,
+      time: 4,
       origin: 0,
       destination: 68,
       passengers: 8,
@@ -672,8 +685,18 @@ const Loading = props => {
       miscTime: 0
     },
     {
-      time: 23,
-      origin: 60,
+      time: 140,
+      origin: 0,
+      destination: 68,
+      passengers: 8,
+      pickUpTime: null,
+      dropOffTime: null,
+      neglectedPassengers: 0,
+      miscTime: 0
+    },
+    {
+      time: 144,
+      origin: 2,
       destination: 68,
       passengers: 8,
       pickUpTime: null,
@@ -684,9 +707,7 @@ const Loading = props => {
   ];
   resetElevatorsandActions(); //reset in case someone is simulating again from this screen
 
-  useEffect(() => {
-    makeElevatorActions(callTimeSeries, props.changeStatus);
-  }, []);
+  makeElevatorActions(callTimeSeries, props.changeStatus);
   return (
     <div>
       <img src={elevatorImg} className="elevator-moving" alt="logo" />
