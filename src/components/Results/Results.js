@@ -20,14 +20,14 @@ const Results = props => {
           label={"Random assignment"}
           handleClick={() => {
             store.dispatch(setApproach("random"));
-            props.startSim();
+            props.startSim("loading");
           }}
         />
         <LvtrButton
           label={"Custom assignment"}
           handleClick={() => {
             store.dispatch(setApproach("custom"));
-            props.startSim();
+            props.startSim("loading");
           }}
         />
       </div>

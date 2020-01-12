@@ -5,7 +5,8 @@ import {
   store,
   setAvgWait,
   setAvgRide,
-  setStatus
+  setStatus,
+  setAvgTotal
 } from "../../redux/app-redux";
 const unirand = require("unirand");
 unirand.seed(store.getState().seed); // keeping the seed consistent
@@ -50,7 +51,7 @@ var elevators = [
    takes 1 sec for elevator to move 1 floor
    takes 5 secs to open elevator door to pick up/ drop off, but 30 secs on lobby floor
    max 10 people per elevator */
-function makeElevatorActions(calls) {
+function makeElevatorActions(calls, changeStatus) {
   // declare elevator action time series
   // should contain objects {time: ____, shaft: ____, destination: ____}
   var actions = [];
@@ -59,10 +60,36 @@ function makeElevatorActions(calls) {
   let callIndex = 0;
   var waitTimes = [];
   var rideTimes = [];
+  var transitionTimes = [];
 
   // loop until all passengers have arrived at their desintation
   while (!allCallsAnswered) {
-    // handle all updates for the given second
+    // if there are any calls left in the time series, check if any are happening at current time
+    if (callIndex < calls.length) {
+      // handle all calls happening at this time
+      if (calls[callIndex].time === t) {
+        do {
+          let call = calls[callIndex];
+          // assign elevator to respond to call
+          let action = handleCall(call);
+          actions.push(action);
+          callIndex++;
+        } while (callIndex < calls.length && calls[callIndex].time === t);
+      }
+    } else {
+      if (
+        // no elevators have unfinished calls
+        elevators[0].pendingRequests.length +
+          elevators[1].pendingRequests.length +
+          elevators[2].pendingRequests.length ===
+        0
+      ) {
+        console.log("all calls have been taken care of");
+        allCallsAnswered = true;
+      }
+    }
+
+    // handle all elevator updates for the given second
     elevators.forEach(function(elevator, index) {
       // if the elevator has an assigned call
       if (elevator.pendingRequests.length > 0) {
@@ -115,6 +142,9 @@ function makeElevatorActions(calls) {
               for (var p = 0; p < call.passengers; p++) {
                 // wait time for each passeneger was current time minus the time of the call
                 waitTimes.push(t - call.time);
+                /* the pick up time needs to be accounted for when we calculate total time spent, and
+                  since it's not part of wait time or ride time here, store it */
+                transitionTimes.push(pickupTransition);
               }
               // if aren't already going in direction of call, change directions
               elevators[index].currentDirection = getCallDirection(
@@ -156,45 +186,25 @@ function makeElevatorActions(calls) {
       }
     });
 
-    // if there are any calls left in the time series, check if it is happening yet
-    if (callIndex < calls.length) {
-      // handle all calls happening at this time
-      if (calls[callIndex].time === t) {
-        do {
-          let call = calls[callIndex];
-          // assign elevator to respond to call
-          let action = handleCall(call);
-          actions.push(action);
-          callIndex++;
-        } while (callIndex < calls.length && calls[callIndex].time === t);
-      }
-    } else {
-      if (
-        // no elevators have unfinished calls
-        elevators[0].pendingRequests.length +
-          elevators[1].pendingRequests.length +
-          elevators[2].pendingRequests.length ===
-        0
-      ) {
-        console.log("all calls have been taken care of");
-        allCallsAnswered = true;
-      }
-    }
     console.log(t);
     t++;
   }
+
+  // store avg wait time and ride time
   console.log(actions);
   console.log(elevators);
-  let avgWait =
-    waitTimes.reduce(function(a, b) {
-      return a + b;
-    }, 0) / waitTimes.length;
+  let avgWait = waitTimes.reduce((a, b) => a + b, 0) / waitTimes.length;
   let avgRide = rideTimes.reduce((a, b) => a + b, 0) / rideTimes.length;
+  let avgTransition =
+    transitionTimes.reduce((a, b) => a + b, 0) / transitionTimes.length;
   console.log("avg wait: " + avgWait);
   console.log("avg ride: " + avgRide);
+  console.log("avg transition: " + avgTransition);
   store.dispatch(setAvgWait(avgWait));
   store.dispatch(setAvgRide(avgRide));
+  store.dispatch(setAvgTotal(avgWait + avgRide + avgTransition));
   store.dispatch(setStatus("results"));
+  changeStatus("results");
 }
 
 function handleCall(call) {
@@ -420,18 +430,26 @@ function compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite) {
   }
 }
 
-function Loading() {
+const Loading = props => {
   let callTimeSeries = [
     {
-      time: 10,
-      origin: 99,
-      destination: 0,
+      time: 0,
+      origin: 0,
+      destination: 1,
+      passengers: 8,
+      pickUpTime: null,
+      dropOffTime: null
+    },
+    {
+      time: 0,
+      origin: 0,
+      destination: 1,
       passengers: 8,
       pickUpTime: null,
       dropOffTime: null
     }
   ];
-  makeElevatorActions(callTimeSeries);
+  makeElevatorActions(callTimeSeries, props.changeStatus);
   return (
     <div>
       <img src={elevatorImg} className="elevator-moving" alt="logo" />
@@ -445,6 +463,6 @@ function Loading() {
       </p>
     </div>
   );
-}
+};
 
 export default Loading;

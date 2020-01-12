@@ -14,9 +14,9 @@ class App extends React.Component {
     };
   }
 
-  changeStatus() {
-    store.dispatch(setStatus("loading"));
-    this.setState({ status: "loading" });
+  changeStatus(status) {
+    store.dispatch(setStatus(status));
+    this.setState({ status: status });
   }
 
   render() {
@@ -25,7 +25,7 @@ class App extends React.Component {
         <p className="top-left">LVTR</p>
         <header className="App-header">
           {this.state.status === "loading" ? (
-            <Loading />
+            <Loading changeStatus={this.changeStatus} />
           ) : this.state.status === "menu" ? (
             <Menu startSim={this.changeStatus} />
           ) : (
