@@ -66,19 +66,28 @@ function makeElevatorActions(calls) {
     elevators.forEach(function(elevator, index) {
       // if the elevator has an assigned call
       if (elevator.pendingRequests.length > 0) {
+        // debugging
         if (
           elevator.currentDirection === 0 &&
+          elevator.pendingRequests[0].dropOffTime === null &&
           elevator.position !== elevator.pendingRequests[0].origin
         )
           console.log(
             "error: elevator was never set in motion for an assigned call"
           );
+
         // if the elevator is not currently letting passengers enter or exit, update its position
+        // takes 30 seconds for passengers to enter or exit shaft on lobby floor, 5 seconds on any other floor
+        const pickupTransition =
+          elevator.pendingRequests[0].origin === 0 ? 30 : 5;
+        const dropoffTransition =
+          elevator.pendingRequests[0].destination === 0 ? 30 : 5;
         if (
           elevator.pendingRequests[0].pickUpTime === null ||
-          (elevator.pendingRequests[0].pickUpTime != null &&
-            t - elevator.pendingRequests[0].pickUpTime >
-              (elevator.pendingRequests[0].origin === 0 ? 30 : 5))
+          (elevator.pendingRequests[0].pickUpTime !== null &&
+            t - elevator.pendingRequests[0].pickUpTime > pickupTransition) ||
+          (elevator.pendingRequests[0].dropOffTime !== null &&
+            elevator.pendingRequests[0].dropOffTime < t - dropoffTransition)
         ) {
           elevators[index].position =
             elevator.position + elevator.currentDirection;
@@ -115,21 +124,28 @@ function makeElevatorActions(calls) {
             }
           } else {
             if (elevator.position === call.destination) {
-              console.log("made it to destination!");
-
-              // drop off passengers
-              elevators[index].passengers =
-                elevators[index].passengers - call.passengers;
-              // record ride times
-              for (var r = 0; r < call.passengers; r++) {
-                /* wait time for each passeneger was current time minus the time of the call
-                  and the 5 seconds it takes passengers to exit */
-                rideTimes.push(t + 5 - call.pickUpTime);
+              if (elevator.pendingRequests[0].dropOffTime === null) {
+                console.log("made it to destination!");
+                elevators[index].pendingRequests[0].dropOffTime = t;
+                // stop the elevator to drop off passengers
+                elevators[index].direction = 0;
+                elevators[index].currentDirection = 0;
+              } else if (
+                t - elevator.pendingRequests[0].dropOffTime ===
+                dropoffTransition
+              ) {
+                // all passengers are off the shaft
+                elevators[index].passengers =
+                  elevators[index].passengers - call.passengers;
+                // record ride times
+                for (var r = 0; r < call.passengers; r++) {
+                  /* ride time for each passeneger is the current time minus the time the ride started (which is
+                    the pick up time plus the time it takes the passenger to get on the elevator) */
+                  rideTimes.push(t - (call.pickUpTime + pickupTransition));
+                }
+                // remove pending action from elevator
+                elevators[index].pendingRequests.splice(0, 1);
               }
-              // remove pending action from elevator and stop moving
-              elevators[index].pendingRequests.splice(0, 1);
-              elevators[index].direction = 0;
-              elevators[index].currentDirection = 0;
             }
           }
         } else {
@@ -406,7 +422,14 @@ function compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite) {
 
 function Loading() {
   let callTimeSeries = [
-    { time: 10, origin: 0, destination: 10, passengers: 8, pickUpTime: null }
+    {
+      time: 10,
+      origin: 99,
+      destination: 0,
+      passengers: 8,
+      pickUpTime: null,
+      dropOffTime: null
+    }
   ];
   makeElevatorActions(callTimeSeries);
   return (
