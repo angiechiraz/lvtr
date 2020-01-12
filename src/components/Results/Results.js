@@ -7,13 +7,13 @@ const Results = props => {
   return (
     <div>
       <p>
-        Avg wait time:<span> {store.getState().avgWait} sec</span>
+        Avg wait time:<span> {store.getState().avgWait.toFixed(1)} sec</span>
       </p>
       <p>
-        Avg ride time: <span> {store.getState().avgRide} sec</span>
+        Avg ride time: <span> {store.getState().avgRide.toFixed(1)} sec</span>
       </p>
       <p>
-        Avg total time: <span> {store.getState().avgTotal} sec</span>
+        Avg total time: <span> {store.getState().avgTotal.toFixed(1)} sec</span>
       </p>
       <div className="row">
         <LvtrButton

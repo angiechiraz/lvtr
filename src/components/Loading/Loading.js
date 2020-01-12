@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import elevatorImg from "../../assets/elevator.png";
 import "../../App.css";
 import {
@@ -76,6 +76,10 @@ function makeElevatorActions(calls, changeStatus) {
           let call = calls[callIndex];
           // assign elevator to respond to call
           let action = handleCall(call);
+          if (action.shaft > 3 || action.shaft < 1) {
+            console.log("out of bounds shaft number");
+            allCallsAnswered = true;
+          }
           actions.push(action);
           callIndex++;
         } while (callIndex < calls.length && calls[callIndex].time === t);
@@ -266,6 +270,7 @@ function makeElevatorActions(calls, changeStatus) {
                   //update amount of passengers being accounted for currently
                   if (totalPassengers > 10) {
                     let passengersWhoDontFit = totalPassengers - 10;
+                    console.log(passengersWhoDontFit + " didn't make the cut");
                     let passengersWhoMadeIt =
                       request.passengers - passengersWhoDontFit;
                     request.passengers = passengersWhoMadeIt;
@@ -275,7 +280,7 @@ function makeElevatorActions(calls, changeStatus) {
                       transitionTimes.push(elevator.position === 0 ? 30 : 5);
                     }
                   } else {
-                    for (var n = 0; n < totalPassengers; n++) {
+                    for (var m = 0; m < totalPassengers; m++) {
                       waitTimes.push(t - request.time + request.miscTime);
                       transitionTimes.push(elevator.position === 0 ? 30 : 5);
                     }
@@ -657,10 +662,20 @@ const Loading = props => {
       miscTime: 0
     },
     {
-      time: 30,
-      origin: 10,
-      destination: 20,
-      passengers: 1,
+      time: 22,
+      origin: 0,
+      destination: 68,
+      passengers: 8,
+      pickUpTime: null,
+      dropOffTime: null,
+      neglectedPassengers: 0,
+      miscTime: 0
+    },
+    {
+      time: 23,
+      origin: 60,
+      destination: 68,
+      passengers: 8,
       pickUpTime: null,
       dropOffTime: null,
       neglectedPassengers: 0,
@@ -668,7 +683,10 @@ const Loading = props => {
     }
   ];
   resetElevatorsandActions(); //reset in case someone is simulating again from this screen
-  makeElevatorActions(callTimeSeries, props.changeStatus);
+
+  useEffect(() => {
+    makeElevatorActions(callTimeSeries, props.changeStatus);
+  }, []);
   return (
     <div>
       <img src={elevatorImg} className="elevator-moving" alt="logo" />
