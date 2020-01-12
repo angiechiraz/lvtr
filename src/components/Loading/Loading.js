@@ -44,6 +44,9 @@ var elevators = [
     pendingRequests: []
   }
 ];
+// declare elevator action time series
+// should contain objects {time: ____, shaft: ____, destination: ____}
+var actions = [];
 
 // create function to take calls as input and output elevator actions
 // calls are objects {time: ___, origin: __, destination: __, passengers: ___, pickUpTime: ___}
@@ -52,9 +55,6 @@ var elevators = [
    takes 5 secs to open elevator door to pick up/ drop off, but 30 secs on lobby floor
    max 10 people per elevator */
 function makeElevatorActions(calls, changeStatus) {
-  // declare elevator action time series
-  // should contain objects {time: ____, shaft: ____, destination: ____}
-  var actions = [];
   let allCallsAnswered = false;
   let t = 0;
   let callIndex = 0;
@@ -90,37 +90,37 @@ function makeElevatorActions(calls, changeStatus) {
     }
 
     // handle all elevator updates for the given second
-    elevators.forEach(function(elevator, index) {
+    elevators.forEach(function(elevator) {
       // if the elevator has an assigned call
       if (elevator.pendingRequests.length > 0) {
-        // debugging
-        if (
-          elevator.currentDirection === 0 &&
-          elevator.pendingRequests[0].dropOffTime === null &&
-          elevator.position !== elevator.pendingRequests[0].origin
-        )
-          console.log(
-            "error: elevator was never set in motion for an assigned call"
-          );
-
-        // if the elevator is not currently letting passengers enter or exit, update its position
-        // takes 30 seconds for passengers to enter or exit shaft on lobby floor, 5 seconds on any other floor
-        const pickupTransition =
-          elevator.pendingRequests[0].origin === 0 ? 30 : 5;
-        const dropoffTransition =
-          elevator.pendingRequests[0].destination === 0 ? 30 : 5;
-        if (
-          elevator.pendingRequests[0].pickUpTime === null ||
-          (elevator.pendingRequests[0].pickUpTime !== null &&
-            t - elevator.pendingRequests[0].pickUpTime > pickupTransition) ||
-          (elevator.pendingRequests[0].dropOffTime !== null &&
-            elevator.pendingRequests[0].dropOffTime < t - dropoffTransition)
-        ) {
-          elevators[index].position =
-            elevator.position + elevator.currentDirection;
-        }
-        // if it only has one
+        // if the elevator only has one pending call, there is no question of what is priority
         if (elevator.pendingRequests.length === 1) {
+          // debugging
+          if (
+            elevator.currentDirection === 0 &&
+            elevator.pendingRequests[0].dropOffTime === null &&
+            elevator.position !== elevator.pendingRequests[0].origin
+          )
+            console.log(
+              "error: elevator was never set in motion for an assigned call"
+            );
+
+          // if the elevator is not currently letting passengers enter or exit, update its position
+          // takes 30 seconds for passengers to enter or exit shaft on lobby floor, 5 seconds on any other floor
+          const pickupTransition =
+            elevator.pendingRequests[0].origin === 0 ? 30 : 5;
+          const dropoffTransition =
+            elevator.pendingRequests[0].destination === 0 ? 30 : 5;
+          if (
+            elevator.pendingRequests[0].pickUpTime === null ||
+            (elevator.pendingRequests[0].pickUpTime !== null &&
+              t - elevator.pendingRequests[0].pickUpTime > pickupTransition) ||
+            (elevator.pendingRequests[0].dropOffTime !== null &&
+              elevator.pendingRequests[0].dropOffTime < t - dropoffTransition)
+          ) {
+            elevator.position = elevator.position + elevator.currentDirection;
+          }
+
           let call = elevator.pendingRequests[0];
           if (
             call.pickUpTime === null &&
@@ -133,10 +133,10 @@ function makeElevatorActions(calls, changeStatus) {
             );
           if (call.pickUpTime === null) {
             if (elevator.position === call.origin) {
-              console.log("made it to pick up!");
+              console.log("made it to pick up on floor " + elevator.position);
 
               // pick up passengers
-              elevators[index].passengers = call.passengers;
+              elevator.passengers = call.passengers;
               elevator.pendingRequests[0].pickUpTime = t; // for tracking ride time
               // start ride time tracking for these passengers
               for (var p = 0; p < call.passengers; p++) {
@@ -147,7 +147,7 @@ function makeElevatorActions(calls, changeStatus) {
                 transitionTimes.push(pickupTransition);
               }
               // if aren't already going in direction of call, change directions
-              elevators[index].currentDirection = getCallDirection(
+              elevator.currentDirection = getCallDirection(
                 call.origin,
                 call.destination
               );
@@ -156,17 +156,16 @@ function makeElevatorActions(calls, changeStatus) {
             if (elevator.position === call.destination) {
               if (elevator.pendingRequests[0].dropOffTime === null) {
                 console.log("made it to destination!");
-                elevators[index].pendingRequests[0].dropOffTime = t;
+                elevator.pendingRequests[0].dropOffTime = t;
                 // stop the elevator to drop off passengers
-                elevators[index].direction = 0;
-                elevators[index].currentDirection = 0;
+                elevator.direction = 0;
+                elevator.currentDirection = 0;
               } else if (
                 t - elevator.pendingRequests[0].dropOffTime ===
                 dropoffTransition
               ) {
                 // all passengers are off the shaft
-                elevators[index].passengers =
-                  elevators[index].passengers - call.passengers;
+                elevator.passengers = elevator.passengers - call.passengers;
                 // record ride times
                 for (var r = 0; r < call.passengers; r++) {
                   /* ride time for each passeneger is the current time minus the time the ride started (which is
@@ -174,7 +173,7 @@ function makeElevatorActions(calls, changeStatus) {
                   rideTimes.push(t - (call.pickUpTime + pickupTransition));
                 }
                 // remove pending action from elevator
-                elevators[index].pendingRequests.splice(0, 1);
+                elevator.pendingRequests.splice(0, 1);
               }
             }
           }
@@ -182,6 +181,7 @@ function makeElevatorActions(calls, changeStatus) {
           // handle multiple assigned calls
           // first handle only the ones in the assigned direction
           // *handle calls with too many passengers for elevator
+          let calls = elevator.pendingRequests;
         }
       }
     });
@@ -384,11 +384,15 @@ function chooseElevator(callOrigin, callDir) {
 
 function chooseRandomElevator() {
   // get next random number between 1 and 3, 1 representing shaft A, 2 is shaft B, 3 is shaft C
-  return 1 + Math.floor(unirand.next() * 3);
+  // if no actions have been made yet, use first random number the seed provides, otherwise get the next one
+  let random = actions.length === 0 ? unirand.random() : unirand.next();
+  return 1 + Math.floor(random * 3);
 }
 
 function chooseBetween(a, b) {
-  if (unirand.next() < 0.5) return a;
+  // if no actions have been made yet, use first random number the seed provides, otherwise get the next one
+  let random = actions.length === 0 ? unirand.random() : unirand.next();
+  if (random < 0.5) return a;
   else return b;
 }
 
@@ -430,25 +434,33 @@ function compareAC(dirAequalsdirC, isAmovingOpposite, isCmovingOpposite) {
   }
 }
 
+const resetElevatorsandActions = () => {
+  actions = [];
+  elevators.forEach(function(elevator) {
+    elevator.position = 0;
+  });
+};
+
 const Loading = props => {
   let callTimeSeries = [
     {
       time: 0,
-      origin: 0,
-      destination: 1,
+      origin: 99,
+      destination: 0,
       passengers: 8,
       pickUpTime: null,
       dropOffTime: null
     },
     {
-      time: 0,
+      time: 20,
       origin: 0,
-      destination: 1,
+      destination: 68,
       passengers: 8,
       pickUpTime: null,
       dropOffTime: null
     }
   ];
+  resetElevatorsandActions(); //reset in case someone is simulating again from this screen
   makeElevatorActions(callTimeSeries, props.changeStatus);
   return (
     <div>
