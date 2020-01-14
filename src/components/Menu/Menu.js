@@ -7,7 +7,7 @@ import { store, setApproach } from "../../redux/app-redux";
 const Menu = props => {
   return (
     <div>
-      <img src={elevator} className="elevator-moving" alt="logo" />
+      <img src={elevator} className="elevator" alt="logo" />
       <div className="row">
         <LvtrButton
           label={"Random assignment"}

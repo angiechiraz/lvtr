@@ -13,11 +13,48 @@ unirand.seed(store.getState().seed); // keeping the seed consistent
 
 var callTimeSeries = [];
 
+/* create elevator objects
+ direction = 0 means elevator is not answering any calls, 
+ direction = 1 means elevator is heading to answer a call where passengers are trying to go up,
+ direction = -1 means it is heading to answer a call where passengers are trying to go down.
+ currentDirection is the direction it is currently moving. i.e. it could be moving up to pick up a downward call
+ positions are 0-99, 0 is Lobby
+ passengers = # of passengers elevator is CURRENTLY holding, not number of passengers it will be holding after it fulfills it's next call(s) */
+var elevators = [];
+// declare elevator action time series
+// should contain objects {time: ____, shaft: ____, destination: ____}
+var actions = [];
+
 async function generateData(changeStatus) {
   //  generate times series of calls to be used by function later
+  actions = [];
   callTimeSeries = [];
-  for (var t = 0; t < 1000; t += 5) {
-    let origin = Math.floor(unirand.next() * 100); // calls are evenly dist among floors
+  elevators = [
+    {
+      direction: 0,
+      currentDirection: 0,
+      position: 0,
+      passengers: 0,
+      pendingRequests: []
+    },
+    {
+      direction: 0,
+      currentDirection: 0,
+      position: 0,
+      passengers: 0,
+      pendingRequests: []
+    },
+    {
+      direction: 0,
+      currentDirection: 0,
+      position: 0,
+      passengers: 0,
+      pendingRequests: []
+    }
+  ];
+  for (var t = 0; t < 1000; t += 30) {
+    let firstRandom = t === 0 ? unirand.random() : unirand.next();
+    let origin = Math.floor(firstRandom * 100); // calls are evenly dist among floors
     let destination = Math.floor(unirand.next() * 100); // destination can't be same as origin
     /* number of passengers follows lognormal dist between (0,5], using mean of 1.5 and sd of .5 based on imagination */
     await unirand
@@ -34,50 +71,13 @@ async function generateData(changeStatus) {
           neglectedPassengers: 0, // use later on for passengers who used to be part of this call but didn't make it on the elevator due to lack of space
           miscTime: 0 // use to account for unanticipated wait time, i.e. if people had to call multiple times because they didn't make the first call
         });
-        if (t === 995) {
+        if (t === 990) {
           console.log(callTimeSeries);
           makeElevatorActions(callTimeSeries, changeStatus);
         }
       });
   }
 }
-
-/* create elevator objects
- direction = 0 means elevator is not answering any calls, 
- direction = 1 means elevator is heading to answer a call where passengers are trying to go up,
- direction = -1 means it is heading to answer a call where passengers are trying to go down.
- currentDirection is the direction it is currently moving. i.e. it could be moving up to pick up a downward call
- positions are 0-99, 0 is Lobby
- passengers = # of passengers elevator is CURRENTLY holding, not number of passengers it will be holding after it fulfills it's next call(s) */
-var elevators = [
-  {
-    // shaft A
-    direction: 0,
-    currentDirection: 0,
-    position: 0,
-    passengers: 0,
-    pendingRequests: []
-  },
-  {
-    // shaft B
-    direction: 0,
-    currentDirection: 0,
-    position: 0,
-    passengers: 0,
-    pendingRequests: []
-  },
-  {
-    // shaft C
-    direction: 0,
-    currentDirection: 0,
-    position: 0,
-    passengers: 0,
-    pendingRequests: []
-  }
-];
-// declare elevator action time series
-// should contain objects {time: ____, shaft: ____, destination: ____}
-var actions = [];
 
 // create function to take calls as input and output elevator actions
 // calls are objects {time: ___, origin: __, destination: __, passengers: ___, pickUpTime: ___, dropOffTime: ___}
