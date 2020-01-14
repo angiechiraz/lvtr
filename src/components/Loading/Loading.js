@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import elevatorImg from "../../assets/elevator.png";
 import "../../App.css";
 import {
@@ -10,6 +10,37 @@ import {
 } from "../../redux/app-redux";
 const unirand = require("unirand");
 unirand.seed(store.getState().seed); // keeping the seed consistent
+
+var callTimeSeries = [];
+
+async function generateData(changeStatus) {
+  //  generate times series of calls to be used by function later
+  callTimeSeries = [];
+  for (var t = 0; t < 1000; t += 5) {
+    let origin = Math.floor(unirand.next() * 100); // calls are evenly dist among floors
+    let destination = Math.floor(unirand.next() * 100); // destination can't be same as origin
+    /* number of passengers follows lognormal dist between (0,5], using mean of 1.5 and sd of .5 based on imagination */
+    await unirand
+      .lognormal(1.4, 0.5)
+      .next()
+      .then(val => {
+        callTimeSeries.push({
+          time: t,
+          origin: origin,
+          destination: destination,
+          passengers: Math.max(Math.min(Math.floor(val), 5), 1),
+          pickUpTime: null,
+          dropOffTime: null,
+          neglectedPassengers: 0, // use later on for passengers who used to be part of this call but didn't make it on the elevator due to lack of space
+          miscTime: 0 // use to account for unanticipated wait time, i.e. if people had to call multiple times because they didn't make the first call
+        });
+        if (t === 995) {
+          console.log(callTimeSeries);
+          makeElevatorActions(callTimeSeries, changeStatus);
+        }
+      });
+  }
+}
 
 /* create elevator objects
  direction = 0 means elevator is not answering any calls, 
@@ -108,7 +139,7 @@ function makeElevatorActions(calls, changeStatus) {
       // if the elevator has an assigned call
       if (elevator.pendingRequests.length > 0) {
         /* if the elevator only has one pending call, don't need to worry about possibility of > 10 passengers 
-          or situations we should pick up or drop off people from another pending call in our direction*/
+          or situations we should pick up or drop off people from another pending call in our direction */
         if (elevator.pendingRequests.length === 1) {
           // debugging
           if (
@@ -218,7 +249,7 @@ function makeElevatorActions(calls, changeStatus) {
           let pendingCalls = elevator.pendingRequests;
 
           /* update elevator position. for cases in which elevator is currently still dropping people off or 
-            picking people up, the currentDirection should be set to zero */
+            picking people up, the currentDirection is set to zero anyway */
           if (elevator.position + elevator.currentDirection < 0) {
             console.log("OUT OF BOUNDS");
             sos = "time of ouf bounds is " + t;
@@ -253,11 +284,9 @@ function makeElevatorActions(calls, changeStatus) {
             call => call.dropOffTime !== null
           );
 
-          let holdForTransition = false; // use to hold elevator if some pending request actions at this floor complete but not others
-
-          if (callsToPosition.length > 0) {
-            /* before anything, drop off passengers with current destination before picking up new ones. this will make room
+          /* before anything, drop off passengers with current destination before picking up new ones. this will make room
              for other calls we may have calls to start loading */
+          if (callsToPosition.length > 0) {
             elevator.currentDirection = 0;
             pendingCalls.forEach(function(call, requestIndex) {
               if (
@@ -267,7 +296,6 @@ function makeElevatorActions(calls, changeStatus) {
               ) {
                 console.log("made it to destination " + call.destination);
                 elevator.pendingRequests[requestIndex].dropOffTime = t;
-                holdForTransition = true;
               }
             });
           }
@@ -293,7 +321,6 @@ function makeElevatorActions(calls, changeStatus) {
                   request.pickUpTime = t;
                   let totalPassengers =
                     elevator.passengers + request.passengers;
-                  holdForTransition = true;
                   //update amount of passengers being accounted for currently
                   if (totalPassengers > 10) {
                     let passengersWhoDontFit = totalPassengers - 10;
@@ -332,9 +359,8 @@ function makeElevatorActions(calls, changeStatus) {
                 call.origin === elevator.position
               ) {
                 if (t - call.pickUpTime === transitionTime) {
-                  // set elevator back in motion unless still transitioning another call
-                  if (!holdForTransition)
-                    elevator.currentDirection = elevator.direction;
+                  // set elevator back in motion
+                  elevator.currentDirection = elevator.direction;
 
                   if (call.neglectedPassengers > 0) {
                     /* make a call with # leftover passengers, with idential origin, dest, current time, 
@@ -351,8 +377,6 @@ function makeElevatorActions(calls, changeStatus) {
                     });
                     actions.push(action);
                   }
-                } else {
-                  holdForTransition = true;
                 }
               } else if (call.dropOffTime !== null) {
                 if (t - call.dropOffTime === transitionTime) {
@@ -365,8 +389,6 @@ function makeElevatorActions(calls, changeStatus) {
                     rideTimes.push(t - (call.pickUpTime + pickupTransition));
                   }
                   callIndicestoUnload.push(requestIndex);
-                } else {
-                  holdForTransition = true;
                 }
               }
             });
@@ -388,11 +410,9 @@ function makeElevatorActions(calls, changeStatus) {
                 }
               }
             }
-            /* if an unload was completed, and no other loads or unloads are underway, set elevator direction towards 
-              next destination of an already taken call or the next... */
+            /* if an unload was completed, set elevator direction towards next destination or pickup */
             if (
               callIndicestoUnload.length > 0 &&
-              !holdForTransition &&
               elevator.pendingRequests.length > 0
             )
               resetElevatorDirection(shaftIndex, pendingCalls);
@@ -401,7 +421,7 @@ function makeElevatorActions(calls, changeStatus) {
       }
     });
 
-    console.log(t);
+    // console.log(t);
     t++;
   }
 
@@ -440,7 +460,7 @@ function resetElevatorDirection(shaftIndex, calls) {
       }
     }
   } else {
-    // otherwise go to next in pending call queue
+    // otherwise go to next in pending pickup
     elevator.direction = getCallDirection(
       calls[0].origin,
       calls[0].destination
@@ -448,10 +468,6 @@ function resetElevatorDirection(shaftIndex, calls) {
     elevator.currentDirection = getCallDirection(
       elevator.position,
       calls[0].origin
-    );
-    console.log(
-      getCallDirection(elevator.position, calls[0].origin) +
-        " current direction for last call"
     );
   }
 }
@@ -745,12 +761,13 @@ const Loading = props => {
     }
   ];
   resetElevatorsandActions(); //reset in case someone is simulating again from this screen
-
+  //console.log(store.getState().callTimeSeries);
   // using set timeout to keep elevator anim going
-  setTimeout(
-    () => makeElevatorActions(callTimeSeries, props.changeStatus),
+  /* setTimeout(
+    () => makeElevatorActions(props.callTimeSeries, props.changeStatus),
     100
-  );
+  );*/
+  setTimeout(() => generateData(props.changeStatus), 100);
   return (
     <div>
       <img src={elevatorImg} className="elevator-moving" alt="logo" />

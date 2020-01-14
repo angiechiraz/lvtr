@@ -1,8 +1,9 @@
-import { createStore } from "redux";
+import { createStore, bindActionCreators } from "redux";
 
 const initialState = {
   status: "menu",
   seed: "LVTR",
+  callTimeSeries: [],
   avgWait: 0,
   avgRide: 0,
   avgTotal: 0,
@@ -16,6 +17,9 @@ const reducer = (state = initialState, action) => {
 
     case "setSeed":
       return { ...state, seed: action.value };
+
+    case "setCallTimeSeries":
+      return { ...state, callTimeSeries: action.value };
 
     case "setAvgWait":
       return { ...state, avgWait: action.value };
@@ -51,6 +55,13 @@ const setSeed = seed => {
   };
 };
 
+const setCallTimeSeries = callTimeSeries => {
+  return {
+    callTimeSeries: "setCallTimeSeries",
+    value: callTimeSeries
+  };
+};
+
 const setAvgWait = avgWait => {
   return {
     type: "setAvgWait",
@@ -79,4 +90,12 @@ const setApproach = approach => {
   };
 };
 
-export { setStatus, setSeed, setAvgWait, setAvgRide, setAvgTotal, setApproach };
+export {
+  setStatus,
+  setSeed,
+  setCallTimeSeries,
+  setAvgWait,
+  setAvgRide,
+  setAvgTotal,
+  setApproach
+};

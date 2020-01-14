@@ -24,10 +24,10 @@ class App extends React.Component {
       <div className="App">
         <p className="top-left">LVTR</p>
         <header className="App-header">
-          {this.state.status === "loading" ? (
-            <Loading changeStatus={this.changeStatus} />
-          ) : this.state.status === "menu" ? (
+          {this.state.status === "menu" ? (
             <Menu startSim={this.changeStatus} />
+          ) : this.state.status === "loading" ? (
+            <Loading changeStatus={this.changeStatus} />
           ) : (
             <Results startSim={this.changeStatus} />
           )}
