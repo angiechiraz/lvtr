@@ -746,7 +746,11 @@ const Loading = props => {
   ];
   resetElevatorsandActions(); //reset in case someone is simulating again from this screen
 
-  makeElevatorActions(callTimeSeries, props.changeStatus);
+  // using set timeout to keep elevator anim going
+  setTimeout(
+    () => makeElevatorActions(callTimeSeries, props.changeStatus),
+    100
+  );
   return (
     <div>
       <img src={elevatorImg} className="elevator-moving" alt="logo" />
