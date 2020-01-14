@@ -369,14 +369,6 @@ function makeElevatorActions(calls, changeStatus) {
                   );
                   console.log("spliced call: ");
                   callIndicestoUnload.push(requestIndex);
-
-                  // elevator.pendingRequests = elevator.pendingRequests.filter(
-                  //   item => item.dropOffTime !== null
-                  // );
-
-                  // set elevator direction towards whatever the next call in it's assigned direction is...
-                  if (elevator.pendingRequests.length > 0)
-                    resetElevatorDirection(shaftIndex, pendingCalls);
                 }
               }
             });
@@ -398,6 +390,12 @@ function makeElevatorActions(calls, changeStatus) {
                 }
               }
             }
+            // if an unload was completed, set elevator direction towards whatever the next call in it's assigned direction is...
+            if (
+              callIndicestoUnload.length > 0 &&
+              elevator.pendingRequests.length > 0
+            )
+              resetElevatorDirection(shaftIndex, pendingCalls);
           }
         }
       }
