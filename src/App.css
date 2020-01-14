@@ -58,9 +58,9 @@ span {
 
 @keyframes elevator-bounce {
   from {
-    transform: translateY(40%);
+    transform: translateY(25%);
   }
   to {
-    transform: translateY(-3%);
+    transform: translateY(-20%);
   }
 }

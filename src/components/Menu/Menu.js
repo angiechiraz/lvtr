@@ -66,7 +66,7 @@ const Menu = props => {
   // generateData();
   return (
     <div>
-      <img src={elevator} className="elevator" alt="logo" />
+      <img src={elevator} className="elevator-moving" alt="logo" />
       <div className="row">
         <LvtrButton
           label={"Random assignment"}
