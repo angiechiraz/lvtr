@@ -221,7 +221,7 @@ function makeElevatorActions(calls, changeStatus) {
             picking people up, the currentDirection should be set to zero */
           if (elevator.position + elevator.currentDirection < 0) {
             console.log("OUT OF BOUNDS");
-            sos = "time is " + t;
+            sos = "time of ouf bounds is " + t;
             allCallsAnswered = true;
           } else
             elevator.position = elevator.position + elevator.currentDirection;
@@ -249,15 +249,15 @@ function makeElevatorActions(calls, changeStatus) {
           );
           //  count how many calls are already at their destination but are still unloading passengers here
           var callsUnloading = pendingCalls.filter(
-            /* if drop off time is not null, we know it's unloading at current floor and it's not done, 
-            because we delete the pending action when it's done */
+            /* if drop off time is not null, we know it's unloading at current floor and it's not done since it isn't deleted */
             call => call.dropOffTime !== null
           );
 
+          let holdForTransition = false; // use to hold elevator if some pending request actions at this floor complete but not others
+
           if (callsToPosition.length > 0) {
-            /* drop off passengers who have this destination before picking up new ones,
-            it's annoying that we are iterating through the full array more than once potentially, 
-             but this will affect # passengers if we have calls to start loading */
+            /* before anything, drop off passengers with current destination before picking up new ones. this will make room
+             for other calls we may have calls to start loading */
             elevator.currentDirection = 0;
             pendingCalls.forEach(function(call, requestIndex) {
               if (
@@ -267,9 +267,11 @@ function makeElevatorActions(calls, changeStatus) {
               ) {
                 console.log("made it to destination " + call.destination);
                 elevator.pendingRequests[requestIndex].dropOffTime = t;
+                holdForTransition = true;
               }
             });
           }
+
           /* pick up passengers who have this origin, and edit pending action to record 
             how many people from that call actually got on the elevator*/
           if (callsFromPosition.length > 0) {
@@ -291,6 +293,7 @@ function makeElevatorActions(calls, changeStatus) {
                   request.pickUpTime = t;
                   let totalPassengers =
                     elevator.passengers + request.passengers;
+                  holdForTransition = true;
                   //update amount of passengers being accounted for currently
                   if (totalPassengers > 10) {
                     let passengersWhoDontFit = totalPassengers - 10;
@@ -319,38 +322,39 @@ function makeElevatorActions(calls, changeStatus) {
           /* handle calls still being loaded - are we done loading? can we set current direction
             and make a call for any neglected passengers? in the same loop, handle calls still being unloaded -
              are we done unloading? can we set current direction and record ride times? */
-
           if (callsLoading.length + callsUnloading.length > 0) {
             let callIndicestoUnload = [];
             pendingCalls.forEach(function(call, requestIndex) {
               let transitionTime = elevator.position === 0 ? 30 : 5;
-
               if (
                 call.pickUpTime !== null &&
                 call.dropOffTime === null &&
-                call.origin === elevator.position &&
-                t - call.pickUpTime === transitionTime
+                call.origin === elevator.position
               ) {
-                // set elevator direction back since it was at 0
-                elevator.currentDirection = elevator.direction;
+                if (t - call.pickUpTime === transitionTime) {
+                  // set elevator back in motion unless still transitioning another call
+                  if (!holdForTransition)
+                    elevator.currentDirection = elevator.direction;
 
-                if (call.neglectedPassengers > 0) {
-                  /* make a call with # leftover passengers, with idential origin, dest, current time, 
+                  if (call.neglectedPassengers > 0) {
+                    /* make a call with # leftover passengers, with idential origin, dest, current time, 
                     and account for time they already waited */
-                  let action = handleCall({
-                    time: t,
-                    origin: call.origin,
-                    destination: call.destination,
-                    passengers: call.neglectedPassengers,
-                    pickUpTime: null,
-                    dropOffTime: null,
-                    neglectedPassengers: 0,
-                    miscTime: t - call.time
-                  });
-                  actions.push(action);
+                    let action = handleCall({
+                      time: t,
+                      origin: call.origin,
+                      destination: call.destination,
+                      passengers: call.neglectedPassengers,
+                      pickUpTime: null,
+                      dropOffTime: null,
+                      neglectedPassengers: 0,
+                      miscTime: t - call.time
+                    });
+                    actions.push(action);
+                  }
+                } else {
+                  holdForTransition = true;
                 }
               } else if (call.dropOffTime !== null) {
-                console.log(pendingCalls);
                 if (t - call.dropOffTime === transitionTime) {
                   // passengers from this call have exited
                   elevator.passengers = elevator.passengers - call.passengers;
@@ -360,15 +364,9 @@ function makeElevatorActions(calls, changeStatus) {
                     // ride time for each passeneger is the current time minus the time the ride started
                     rideTimes.push(t - (call.pickUpTime + pickupTransition));
                   }
-                  // remove pending action from elevator
-                  console.log(
-                    "splicing request index " +
-                      requestIndex +
-                      " for elevator " +
-                      shaftIndex
-                  );
-                  console.log("spliced call: ");
                   callIndicestoUnload.push(requestIndex);
+                } else {
+                  holdForTransition = true;
                 }
               }
             });
@@ -390,9 +388,11 @@ function makeElevatorActions(calls, changeStatus) {
                 }
               }
             }
-            // if an unload was completed, set elevator direction towards whatever the next call in it's assigned direction is...
+            /* if an unload was completed, and no other loads or unloads are underway, set elevator direction towards 
+              next destination of an already taken call or the next... */
             if (
               callIndicestoUnload.length > 0 &&
+              !holdForTransition &&
               elevator.pendingRequests.length > 0
             )
               resetElevatorDirection(shaftIndex, pendingCalls);
