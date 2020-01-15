@@ -3,31 +3,16 @@ import "../../App.css";
 import LvtrButton from "../LvtrButton/LvtrButton";
 import { store, setApproach } from "../../redux/app-redux";
 
+function formatTime(num) {
+  return num > 60
+    ? Math.floor(num / 60) + " min " + (num.toFixed(0) % 60) + " sec"
+    : (num.toFixed(0) % 60) + " sec";
+}
+
 const Results = props => {
-  let waitTimeText =
-    store.getState().avgWait > 60
-      ? Math.floor(store.getState().avgWait / 60) +
-        " min " +
-        (store.getState().avgWait.toFixed(0) % 60) +
-        " sec"
-      : (store.getState().avgWait.toFixed(0) % 60) + " sec";
-
-  let rideTimeText =
-    store.getState().avgRide > 60
-      ? Math.floor(store.getState().avgRide / 60) +
-        " min " +
-        (store.getState().avgRide.toFixed(0) % 60) +
-        " sec"
-      : (store.getState().avgRide.toFixed(0) % 60) + " sec";
-
-  let totalTimeText =
-    store.getState().avgTotal > 60
-      ? Math.floor(store.getState().avgTotal / 60) +
-        " min " +
-        (store.getState().avgTotal.toFixed(0) % 60) +
-        " sec"
-      : (store.getState().avgTotal.toFixed(0) % 60) + " sec";
-
+  let waitTimeText = formatTime(store.getState().avgWait);
+  let rideTimeText = formatTime(store.getState().avgRide);
+  let totalTimeText = formatTime(store.getState().avgTotal);
   return (
     <div>
       <p>
