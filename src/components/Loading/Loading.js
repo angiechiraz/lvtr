@@ -24,7 +24,7 @@ var transitionTimes = [];
 async function generateData(changeStatus) {
   // reset data
   resetElevatorsandActions();
-  for (var t = 0; t < 1000; t += 30) {
+  for (var t = 0; t < 5000; t += 30) {
     let firstRandom = t === 0 ? unirand.random() : unirand.next();
     let origin = Math.floor(firstRandom * 100); // calls are evenly dist among floors
     let destination = Math.floor(unirand.next() * 100); // destination can't be same as origin
@@ -43,7 +43,7 @@ async function generateData(changeStatus) {
           neglectedPassengers: 0, // use later on for passengers who used to be part of this call but didn't make it on the elevator due to lack of space
           miscTime: 0 // use to account for unanticipated wait time, i.e. if people had to call multiple times because they didn't make the first call
         });
-        if (t === 990) {
+        if (t === 4980) {
           // the last time increment
           console.log(callTimeSeries);
           makeElevatorActions(callTimeSeries, changeStatus); // after we have call time series, send to elevator action making function
@@ -119,7 +119,8 @@ function makeElevatorActions(calls, changeStatus) {
             // the elevator should move so long as it's not dropping off or picking up passengers
             currentCall.pickUpTime === null ||
             (currentCall.pickUpTime !== null &&
-              t - currentCall.pickUpTime > pickupTransition) ||
+              t - currentCall.pickUpTime > pickupTransition &&
+              currentCall.dropOffTime === null) ||
             (currentCall.dropOffTime !== null &&
               currentCall.dropOffTime < t - dropoffTransition)
           ) {
@@ -144,34 +145,53 @@ function makeElevatorActions(calls, changeStatus) {
             allCallsAnswered = true;
           } else if (
             currentCall.pickUpTime !== null &&
-            t < currentCall.pickUpTime + pickupTransition &&
+            currentCall.dropOffTime === null &&
+            elevator.position !== currentCall.destination &&
+            t > currentCall.pickUpTime + pickupTransition &&
             elevator.currentDirection !==
               getCallDirection(elevator.position, currentCall.destination)
           ) {
-            console.log("ERROR: not going towards only destination");
+            console.log(
+              "ERROR: " +
+                shaftIndex +
+                " not going towards only destination w current direction " +
+                elevator.currentDirection
+            );
             allCallsAnswered = true;
           }
 
           // if we arrived at pickup floor, begin transition
-          if (
-            currentCall.pickUpTime === null &&
-            elevator.position === currentCall.origin
-          ) {
-            elevator.passengers = currentCall.passengers;
-            currentCall.pickUpTime = t; // for tracking ride time
-            for (var p = 0; p < currentCall.passengers; p++) {
-              // wait time for each passeneger was current time minus the time of the call
-              let wait = t - currentCall.time + currentCall.miscTime;
-              waitTimes.push(wait);
-              /* the pick up time needs to be accounted for when we calculate total time spent, and
-                  since it's not part of wait time or ride time here, store it */
-              transitionTimes.push(pickupTransition);
-            }
-            // set direction to call
-            elevator.currentDirection = getCallDirection(
-              currentCall.origin,
-              currentCall.destination
+          if (elevator.position === currentCall.origin) {
+            console.log(
+              "ELEVATOR INDEX " +
+                shaftIndex +
+                " done with pick up on floor  " +
+                elevator.position
             );
+            if (currentCall.pickUpTime === null) {
+              elevator.currentDirection = 0;
+              elevator.passengers = currentCall.passengers;
+              currentCall.pickUpTime = t; // for tracking ride time
+              for (var p = 0; p < currentCall.passengers; p++) {
+                // wait time for each passeneger is current time minus the time of the call, and misc if they called more than once
+                let wait = t - currentCall.time + currentCall.miscTime;
+                waitTimes.push(wait);
+                // the pick up time needs to be accounted for when we calculate total time spent
+                transitionTimes.push(pickupTransition);
+              }
+            } else if (currentCall.pickUpTime + pickupTransition === t) {
+              console.log(
+                "SETTING ELEVATOR INDEX " +
+                  shaftIndex +
+                  " BACK IN MOTION ON " +
+                  elevator.position
+              );
+              // set elevator back in motion now
+              elevator.currentDirection = getCallDirection(
+                elevator.position,
+                currentCall.destination
+              );
+            }
           } else {
             // handle arrival at desination or wait for passengers to get off / doors to open
             if (
@@ -201,8 +221,7 @@ function makeElevatorActions(calls, changeStatus) {
           }
         } else {
           // handle when an elevator has multiple calls assigned to it
-          let pendingCalls = elevator.pendingRequests;
-
+          let requests = elevator.pendingRequests;
           /* update elevator position. for cases in which elevator is currently still dropping people off or 
             picking people up, the currentDirection is set to zero anyway */
           let nextPosition = elevator.position + elevator.currentDirection;
@@ -213,7 +232,7 @@ function makeElevatorActions(calls, changeStatus) {
             allCallsAnswered = true;
           } else elevator.position = nextPosition;
           // count how many unpicked up calls we are now at the origin of
-          var callsFromPosition = pendingCalls.filter(
+          var callsFromPosition = requests.filter(
             call =>
               call.pickUpTime === null &&
               elevator.position === call.origin &&
@@ -221,21 +240,19 @@ function makeElevatorActions(calls, changeStatus) {
                 elevator.direction
           );
           // // count how many calls we have already picked up that drop off here
-          var callsToPosition = pendingCalls.filter(
+          var callsToPosition = requests.filter(
             call =>
               call.pickUpTime !== null &&
               call.dropOffTime === null &&
               elevator.position === call.destination
           );
           // // count how many calls we already picked up here but are still loading passengers
-          var callsLoading = pendingCalls.filter(
+          var callsLoading = requests.filter(
             call =>
-              call.pickUpTime !== null &&
-              elevator.position === call.origin &&
-              t <= call.pickUpTime + (call.origin === 0 ? 30 : 5)
+              call.pickUpTime !== null && elevator.position === call.origin
           );
           //  count how many calls are already at their destination but are still unloading passengers here
-          var callsUnloading = pendingCalls.filter(
+          var callsUnloading = requests.filter(
             /* if drop off time is not null, we know it's unloading at current floor and it's not done since it isn't deleted */
             call => call.dropOffTime !== null
           );
@@ -244,35 +261,21 @@ function makeElevatorActions(calls, changeStatus) {
              for other calls we may have calls to start loading */
           if (callsToPosition.length > 0) {
             elevator.currentDirection = 0;
-            pendingCalls.forEach(function(call, requestIndex) {
+            requests.forEach(function(call, requestIndex) {
               if (
                 call.pickUpTime !== null &&
                 call.destination === elevator.position &&
                 call.dropOffTime === null
               ) {
-                if (shaftIndex === 0) {
-                  console.log(
-                    shaftIndex + " made it to destination " + call.destination
-                  );
-                  if (call.destination === 76) {
-                    console.log(
-                      "YOOOOOOO! THE DIRECTION CURRENTLY IS " +
-                        elevator.currentDirection +
-                        " with intended direction " +
-                        elevator.direction
-                    );
-                  }
-                }
                 elevator.pendingRequests[requestIndex].dropOffTime = t;
               }
             });
           }
 
-          /* pick up passengers who have this origin, and edit pending action to record 
-            how many people from that call actually got on the elevator*/
+          /* pick up passengers who have this origin, and record # people who made it */
           if (callsFromPosition.length > 0) {
             elevator.currentDirection = 0;
-            pendingCalls.forEach(function(call, requestIndex) {
+            requests.forEach(function(call, requestIndex) {
               // if it is in the assigned direction
               if (
                 getCallDirection(call.origin, call.destination) ===
@@ -288,31 +291,8 @@ function makeElevatorActions(calls, changeStatus) {
                       elevator.position
                   );
 
-                  if (call.destination === 99 && call.origin === 35) {
-                    console.log(elevator);
-                    console.log(
-                      "time is " + t + " and direction is " + elevator.direction
-                    );
-                  }
-                  if (shaftIndex === 0) {
-                    console.log(
-                      shaftIndex + " made it to destination " + call.destination
-                    );
-                    if (elevator.position === 76) {
-                      console.log(
-                        "YOOOOOOO! THE DIRECTION CURRENTLY IS " +
-                          elevator.currentDirection +
-                          " with intended direction " +
-                          elevator.direction
-                      );
-                    }
-                  }
                   let request = elevator.pendingRequests[requestIndex];
                   request.pickUpTime = t;
-                  if (elevator.position === 99 && shaftIndex === 0) {
-                    console.log("AT FLOOR 99 FOR FIRST ELEVATOR");
-                    allCallsAnswered = true;
-                  }
                   let totalPassengers =
                     elevator.passengers + request.passengers;
                   //update amount of passengers being accounted for currently
@@ -343,33 +323,25 @@ function makeElevatorActions(calls, changeStatus) {
           /* handle calls still being loaded - are we done loading? can we set current direction
             and make a call for any neglected passengers? in the same loop, handle calls still being unloaded -
              are we done unloading? can we set current direction and record ride times? */
-          if (callsLoading.length + callsUnloading.length > 0) {
-            if (shaftIndex === 0) {
-              if (elevator.position === 76) {
-                console.log(
-                  "YOOOOOOO! THE DIRECTION CURRENTLY IS " +
-                    elevator.currentDirection +
-                    " with intended direction " +
-                    elevator.direction +
-                    " on floor " +
-                    elevator.position
-                );
-              }
-            }
+          if (elevator.passengers > 0) {
             let callIndicestoUnload = [];
-            pendingCalls.forEach(function(call, requestIndex) {
+            requests.forEach(function(call, requestIndex) {
               let transitionTime = elevator.position === 0 ? 30 : 5;
               if (call.pickUpTime !== null && call.dropOffTime === null) {
                 if (call.origin === elevator.position) {
                   if (t - call.pickUpTime === transitionTime) {
                     // set elevator back in motion
                     elevator.currentDirection = getCallDirection(
-                      call.origin,
+                      elevator.position,
                       call.destination
                     );
                     elevator.direction = elevator.currentDirection;
-                    // elevator.currentDirection = elevator.direction;
-
+                    console.log(
+                      "MOVING AGAIN for call with origin " +
+                        call.origin +
+                        " while we are at position " +
+                        elevator.position
+                    );
                     if (call.neglectedPassengers > 0) {
                       /* make a call with # leftover passengers, with idential origin, dest, current time, 
                     and account for time they already waited */
@@ -393,15 +365,19 @@ function makeElevatorActions(calls, changeStatus) {
                     elevator.currentDirection !==
                       getCallDirection(elevator.position, call.destination)
                   ) {
-                    elevator.currentDirection = getCallDirection(
-                      elevator.position,
-                      call.destination
+                    console.log(
+                      "WRONG DIRECTION for elevator " +
+                        shaftIndex +
+                        " on floor " +
+                        elevator.position
                     );
-                    console.log("GOTTEM");
                     allCallsAnswered = true;
                   }
                 }
-              } else if (call.dropOffTime !== null) {
+              } else if (
+                call.dropOffTime !== null &&
+                call.destination == elevator.position
+              ) {
                 if (t - call.dropOffTime === transitionTime) {
                   // passengers from this call have exited
                   elevator.passengers = elevator.passengers - call.passengers;
@@ -434,25 +410,13 @@ function makeElevatorActions(calls, changeStatus) {
               }
             }
             /* if an unload was completed, set elevator direction towards next destination or pickup */
-            if (
-              callIndicestoUnload.length > 0 &&
-              elevator.pendingRequests.length > 0
-            )
-              if (shaftIndex === 0 && elevator.postiion === 76) {
-                console.log(
-                  "YOOOOOOO! THE DIRECTION CURRENTLY IS " +
-                    elevator.currentDirection +
-                    " with call direction " +
-                    elevator.direction
-                );
-              }
-            resetElevatorDirection(shaftIndex, pendingCalls);
+            if (elevator.pendingRequests.length > 0) {
+              resetElevatorDirection(shaftIndex, requests);
+            }
           }
         }
       }
     });
-
-    // console.log(t);
     t++;
   }
 
@@ -487,12 +451,6 @@ function resetElevatorDirection(shaftIndex, calls) {
           calls[alreadyTaken].origin,
           calls[alreadyTaken].destination
         );
-
-        if (shaftIndex === 0 && elevator.postiion === 76) {
-          console.log(
-            "YOOOOOOO! THE DIRECTION CURRENTLY IS " + elevator.currentDirection
-          );
-        }
         break;
       }
     }
@@ -506,11 +464,6 @@ function resetElevatorDirection(shaftIndex, calls) {
       elevator.position,
       calls[0].origin
     );
-    if (shaftIndex === 0 && elevator.postiion === 76) {
-      console.log(
-        "YOOOOOOO! THE DIRECTION CURRENTLY IS " + elevator.currentDirection
-      );
-    }
   }
 }
 
@@ -523,26 +476,11 @@ function handleCall(call) {
 
   // update the respective elevator object
   updateElevatorAssignments(elevatorShaft, callDir, call);
-  let pos = elevators[0].position;
-  console.log(
-    "call direction " +
-      callDir +
-      " for shaft" +
-      elevatorShaft +
-      "minus 1 on floor " +
-      pos +
-      " at time " +
-      call.time +
-      " with destinaton " +
-      call.destination +
-      " and origin " +
-      call.origin
-  );
   // return action to update elevator action time series
   return {
     time: call.time,
     shaft: elevatorShaft,
-    pickup: call.origin,
+    origin: call.origin,
     destination: call.destination,
     passengers: call.passengers
   };
@@ -555,7 +493,6 @@ function getCallDirection(origin, destination) {
 }
 
 function updateElevatorAssignments(elevatorShaft, callDir, call) {
-  console.log("for elevator " + elevatorShaft);
   if (elevatorShaft == null) console.log("null elevator");
   else if (elevatorShaft < 1 || elevatorShaft > 3)
     console.log("elevator num out of bounds");
@@ -568,11 +505,10 @@ function updateElevatorAssignments(elevatorShaft, callDir, call) {
         chosenElevator.position,
         call.origin
       );
-
       console.log(
         "elevator shaft " +
           elevatorShaft +
-          " minus 1 did change direction for call at origin " +
+          " did change direction for call at origin " +
           call.origin +
           ". now going in current direction " +
           chosenElevator.currentDirection
@@ -584,8 +520,10 @@ function updateElevatorAssignments(elevatorShaft, callDir, call) {
       console.log(
         "elevator shaft " +
           elevatorShaft +
-          " minus 1 didnt change direction. still going in current direction " +
-          chosenElevator.currentDirection
+          " didn't change direction. still going in current direction " +
+          chosenElevator.currentDirection +
+          " for calls in direction " +
+          chosenElevator.direction
       );
     }
   }
