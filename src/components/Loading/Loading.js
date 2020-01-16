@@ -128,7 +128,12 @@ function makeElevatorActions(calls, changeStatus) {
               elevator.position + elevator.currentDirection < 0 || // check if we are out of floor bounds
               elevator.position + elevator.currentDirection > 99
             ) {
-              console.log("OUT OF BOUNDS elevator shaftIndex " + shaftIndex);
+              console.log(
+                "OUT OF BOUNDS elevator shaftIndex " +
+                  shaftIndex +
+                  " with currentDirection " +
+                  elevator.currentDirection
+              );
               console.log("time is " + t);
               allCallsAnswered = true; // break
             } else
@@ -165,10 +170,20 @@ function makeElevatorActions(calls, changeStatus) {
             console.log(
               "ELEVATOR INDEX " +
                 shaftIndex +
-                " done with pick up on floor  " +
-                elevator.position
+                " starting pick up on floor  " +
+                elevator.position +
+                " for elevator with destination " +
+                currentCall.destination +
+                " and pickup time " +
+                currentCall.pickUpTime
             );
             if (currentCall.pickUpTime === null) {
+              console.log(
+                "ok ELEVATOR INDEX " +
+                  shaftIndex +
+                  " starting pick up on floor  " +
+                  elevator.position
+              );
               elevator.currentDirection = 0;
               elevator.passengers = currentCall.passengers;
               currentCall.pickUpTime = t; // for tracking ride time
@@ -203,7 +218,15 @@ function makeElevatorActions(calls, changeStatus) {
                 // stop the elevator to drop off passengers
                 elevator.direction = 0;
                 elevator.currentDirection = 0;
-              } else if (t - currentCall.dropOffTime === dropoffTransition) {
+                if (shaftIndex === 1) {
+                  console.log(
+                    "A call to splice while at position " +
+                      elevator.position +
+                      " with call destination " +
+                      currentCall.destination
+                  );
+                }
+              } else if (t === currentCall.dropOffTime + dropoffTransition) {
                 // all passengers are off the shaft
                 elevator.passengers =
                   elevator.passengers - currentCall.passengers;
@@ -392,6 +415,13 @@ function makeElevatorActions(calls, changeStatus) {
               }
             });
             if (callIndicestoUnload.length > 0) {
+              if (shaftIndex === 1) {
+                console.log(
+                  callIndicestoUnload.length +
+                    " calls to splice while at position " +
+                    elevator.position
+                );
+              }
               if (callIndicestoUnload.length === 1) {
                 elevator.pendingRequests.splice(callIndicestoUnload[0], 1);
               } else {
@@ -416,6 +446,7 @@ function makeElevatorActions(calls, changeStatus) {
           }
         }
       }
+      if (shaftIndex == 1) console.log(elevator.position);
     });
     t++;
   }
